@@ -29,7 +29,6 @@ export default function RootLayout() {
             >
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="auth" options={{ animation: 'fade' }} />
-              <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile' }} />
               <Stack.Screen name="predictions" options={{ headerShown: true, title: 'My predictions' }} />
               <Stack.Screen name="matchday" options={{ presentation: 'card', headerShown: true, title: 'Matchday' }} />
               <Stack.Screen name="match/[id]" options={{ headerShown: true, title: 'Predict match' }} />

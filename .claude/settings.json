@@ -18,7 +18,15 @@
       "Bash(git -C \"C:/Users/simen.hauge/Documents/privat/prosjekter/FootballApp\" diff HEAD -- server/controllers/GroupController.js server/routes/Groups.js server/Server.js)",
       "Bash(git -C \"c:\\\\Users\\\\simen.hauge\\\\Documents\\\\privat\\\\prosjekter\\\\FootballApp\" diff HEAD -- server/controllers/GroupController.js)",
       "Bash(echo \"exit=$?\")",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :5000)",
+      "Bash(tasklist /FI \"PID eq 41024\")",
+      "Bash(tasklist /FI \"PID eq 35768\")",
+      "PowerShell(Get-Process -Id 41024,35768)",
+      "Bash(curl -i -X OPTIONS http://localhost:5000/api/players/login -H \"Origin: http://localhost:8081\" -H \"Access-Control-Request-Method: POST\" -H \"Access-Control-Request-Headers: content-type\")",
+      "Bash(findstr :5001)",
+      "PowerShell(Get-Process -Id 29428,32808)"
     ]
   }
 }

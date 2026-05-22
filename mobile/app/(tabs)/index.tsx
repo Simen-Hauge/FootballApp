@@ -4,7 +4,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Button, Card, Screen, Text } from '@/components/ui';
 import { MatchCard } from '@/components/MatchCard';
 import { GamemodeToggle } from '@/components/GamemodeToggle';
-import { ProfileButton } from '@/components/ProfileButton';
 import { useAuth } from '@/auth/AuthContext';
 import { useGamemode, SERVER_GAMEMODE_ID } from '@/gamemode';
 import { matchesApi, type Match } from '@/api/matches';
@@ -70,7 +69,6 @@ export default function Dashboard() {
 
   return (
     <Screen>
-      <ProfileButton />
       <View style={styles.toggleWrapper}>
         <GamemodeToggle />
       </View>

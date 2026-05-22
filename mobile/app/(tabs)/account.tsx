@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Screen, Text } from '@/components/ui';
 import { GamemodeToggle } from '@/components/GamemodeToggle';
-import { ProfileButton } from '@/components/ProfileButton';
 import { useAuth } from '@/auth/AuthContext';
 import { colors, radii, spacing } from '@/theme';
 
@@ -13,7 +12,6 @@ export default function AccountTab() {
 
   return (
     <Screen>
-      <ProfileButton />
       <View style={styles.header}>
         <Text variant="caption" color="brand">YOU</Text>
         <Text variant="h1">Account</Text>

@@ -3,7 +3,6 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Screen, Text } from '@/components/ui';
-import { ProfileButton } from '@/components/ProfileButton';
 import { useAuth } from '@/auth/AuthContext';
 import { useGamemode, SERVER_GAMEMODE_ID } from '@/gamemode';
 import { groupsApi, type GroupSummary } from '@/api/groups';
@@ -49,7 +48,6 @@ export default function GroupsTab() {
 
   return (
     <Screen>
-      <ProfileButton />
       <View style={styles.header}>
         <Text variant="caption" color="brand">{meta.shortLabel} · COMPETE</Text>
         <Text variant="h1">Groups</Text>

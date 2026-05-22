@@ -203,29 +203,53 @@ export default function MatchPredictionScreen() {
         </View>
       </Card>
 
-      <Card style={styles.section}>
-        <Text variant="h3">Predict the score</Text>
-        <View style={styles.scoreInputs}>
-          <ScoreStepper label={match.homeTeam} value={home} onChange={setHome} />
-          <Text style={styles.scoreDash}>–</Text>
-          <ScoreStepper label={match.awayTeam} value={away} onChange={setAway} />
-        </View>
-      </Card>
-
-      {supportsFirstScorer ? (
-        <Card style={styles.section}>
-          <Text variant="h3">First goal scorer</Text>
-          <Text variant="small" color="muted">Pick the player you think scores first.</Text>
-          <Pressable onPress={openPicker} style={({ pressed }) => [styles.scorerSelect, pressed && { opacity: 0.6 }]}>
-            <View style={{ flex: 1 }}>
-              <Text variant="bodyBold" color={scorer ? 'primary' : 'muted'}>
-                {scorer ? scorer.playerName : 'Choose a player'}
-              </Text>
+      {!isLocked ? (
+        <>
+          <Card style={styles.section}>
+            <Text variant="h3">Predict the score</Text>
+            <View style={styles.scoreInputs}>
+              <ScoreStepper label={match.homeTeam} value={home} onChange={setHome} />
+              <Text style={styles.scoreDash}>–</Text>
+              <ScoreStepper label={match.awayTeam} value={away} onChange={setAway} />
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.text.muted} />
-          </Pressable>
+          </Card>
+
+          {supportsFirstScorer ? (
+            <Card style={styles.section}>
+              <Text variant="h3">First goal scorer</Text>
+              <Text variant="small" color="muted">Pick the player you think scores first.</Text>
+              <Pressable onPress={openPicker} style={({ pressed }) => [styles.scorerSelect, pressed && { opacity: 0.6 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text variant="bodyBold" color={scorer ? 'primary' : 'muted'}>
+                    {scorer ? scorer.playerName : 'Choose a player'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.text.muted} />
+              </Pressable>
+            </Card>
+          ) : null}
+        </>
+      ) : (
+        <Card style={styles.section}>
+          <Text variant="h3">Your prediction</Text>
+          {existing && existing.score?.home != null && existing.score?.away != null ? (
+            <>
+              <View style={styles.yourPredScore}>
+                <Text style={styles.bigScore}>
+                  {existing.score.home} – {existing.score.away}
+                </Text>
+              </View>
+              {existing.firstGoalScorer?.playerName ? (
+                <Text variant="small" color="muted" align="center">
+                  1st scorer: {existing.firstGoalScorer.playerName}
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <Text variant="body" color="muted">You didn't predict this match.</Text>
+          )}
         </Card>
-      ) : null}
+      )}
 
       {error ? (
         <View style={styles.errorBox}>
@@ -496,6 +520,7 @@ const styles = StyleSheet.create({
   scorerSelect: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: radii.md, backgroundColor: colors.surface.cardSubtle, gap: spacing.md, marginTop: spacing.sm },
   errorBox: { backgroundColor: colors.state.dangerBg, padding: spacing.md, borderRadius: radii.md, marginBottom: spacing.md },
   lockedCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  yourPredScore: { alignItems: 'center', marginVertical: spacing.sm },
   actions: { gap: spacing.sm, marginBottom: spacing.xl },
   pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.sm, marginBottom: spacing.lg },
   playerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs, gap: spacing.sm, paddingHorizontal: spacing.md },
