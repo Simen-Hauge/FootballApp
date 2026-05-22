@@ -1,5 +1,3 @@
-import { matchPointLogic } from "./PointLogic";
-
 export const getMatches = async (matchweek) => {
     try {
         const response = await fetch(`https://footballapp-u80w.onrender.com/api/matches/by-matchweek/?matchweek=${matchweek}`);
@@ -72,22 +70,3 @@ export const storePredictions = async (email, matchid, homeGoals, awayGoals, gam
     }
 }
 
-export const updatePlayerScore = async (email, predictedScore, actualScore) => {
-    try {
-        const points = matchPointLogic(predictedScore, actualScore)
-
-        const response = await fetch(`https://footballapp-u80w.onrender.com/api/players/score?email=${email}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                email,
-                points
-            })
-        })
-        const data = await response.json()
-        console.log('Updated score for', email, ':', data)
-
-    } catch (error) {
-        console.error('Error updating score:', error)
-    }
-}

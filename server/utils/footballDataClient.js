@@ -55,6 +55,7 @@ module.exports = {
   FootballDataError,
   isRateLimit,
   getMatches: (competition, params = {}) => safeGet(`/competitions/${competition}/matches`, params),
+  getMatch: (matchId) => safeGet(`/matches/${matchId}`),
   getTeams: (competition) => safeGet(`/competitions/${competition}/teams`),
   getStandings: (competition, params = {}) => safeGet(`/competitions/${competition}/standings`, params),
 };

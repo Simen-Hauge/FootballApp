@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Screen, Text } from '@/components/ui';
@@ -29,6 +29,7 @@ export default function MatchPredictionScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [scoringInfoOpen, setScoringInfoOpen] = useState(false);
   const [matchPredictions, setMatchPredictions] = useState<MatchPredictionEntry[] | null>(null);
 
   // Load match + existing prediction
@@ -180,9 +181,28 @@ export default function MatchPredictionScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="caption" color="brand">{competitionLabel(match.competition)}</Text>
-        <Text variant="caption" color="secondary">{formatKickoff(match.kickoffDateTime)}</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text variant="caption" color="brand">{competitionLabel(match.competition)}</Text>
+            <Text variant="caption" color="secondary">{formatKickoff(match.kickoffDateTime)}</Text>
+          </View>
+          <Pressable
+            onPress={() => setScoringInfoOpen(true)}
+            accessibilityLabel="How scoring works"
+            hitSlop={6}
+            style={({ pressed }) => [styles.infoPill, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name="information-circle-outline" size={16} color={colors.brand.primary} />
+            <Text variant="caption" color="brand">How scoring works</Text>
+          </Pressable>
+        </View>
       </View>
+
+      <ScoringInfoModal
+        visible={scoringInfoOpen}
+        onClose={() => setScoringInfoOpen(false)}
+        showFirstScorer={supportsFirstScorer}
+      />
 
       <Card style={styles.matchCard}>
         <View style={styles.teamsRow}>
@@ -481,9 +501,147 @@ function FirstScorerPicker({
   );
 }
 
+function ScoringInfoModal({
+  visible,
+  onClose,
+  showFirstScorer,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  showFirstScorer: boolean;
+}) {
+  const rules: Array<{ points: string; title: string; detail: string }> = [
+    { points: '3', title: 'Exact score', detail: 'Predict the final score perfectly (e.g. 2–1 for 2–1).' },
+    { points: '2', title: 'Correct outcome', detail: 'Right winner — or both teams drew — but the score is off.' },
+    { points: '1', title: 'Close call', detail: 'You got one team’s goal tally right, or the goal difference matches.' },
+    { points: '0', title: 'No match', detail: 'Wrong outcome and neither team’s score lined up.' },
+  ];
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.modalHeader}>
+            <Text variant="h2">How scoring works</Text>
+            <Pressable onPress={onClose} hitSlop={8} accessibilityLabel="Close">
+              <Ionicons name="close" size={22} color={colors.text.primary} />
+            </Pressable>
+          </View>
+
+          <Text variant="small" color="muted" style={{ marginBottom: spacing.md }}>
+            Points are awarded automatically after the match finishes.
+          </Text>
+
+          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <Text variant="caption" color="secondary" style={styles.modalSectionLabel}>
+              SCORE PREDICTION
+            </Text>
+            {rules.map((r) => (
+              <View key={r.title} style={styles.ruleRow}>
+                <View style={[styles.pointsChip, r.points === '0' && styles.pointsChipZero]}>
+                  <Text variant="bodyBold" color="inverse">{r.points}</Text>
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text variant="bodyBold">{r.title}</Text>
+                  <Text variant="small" color="muted">{r.detail}</Text>
+                </View>
+              </View>
+            ))}
+
+            {showFirstScorer ? (
+              <>
+                <Text variant="caption" color="secondary" style={styles.modalSectionLabel}>
+                  BONUS
+                </Text>
+                <View style={styles.ruleRow}>
+                  <View style={[styles.pointsChip, styles.pointsChipBonus]}>
+                    <Text variant="bodyBold" color="inverse">+5</Text>
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text variant="bodyBold">Correct first scorer</Text>
+                    <Text variant="small" color="muted">
+                      Stacks on top of your score points. Own goals count — whoever scored first.
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.maxBox}>
+                  <Ionicons name="trophy-outline" size={16} color={colors.brand.primary} />
+                  <Text variant="small" color="brand">
+                    Maximum per match: <Text variant="bodyBold" color="brand">8 points</Text>
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={styles.maxBox}>
+                <Ionicons name="trophy-outline" size={16} color={colors.brand.primary} />
+                <Text variant="small" color="brand">
+                  Maximum per match: <Text variant="bodyBold" color="brand">3 points</Text>
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { marginTop: spacing.sm, marginBottom: spacing.md, gap: spacing.xs },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
+  infoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    backgroundColor: colors.brand.primaryLight,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: colors.surface.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '85%',
+    backgroundColor: colors.surface.card,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs },
+  modalBody: { flexGrow: 0 },
+  modalSectionLabel: { marginTop: spacing.sm, marginBottom: spacing.sm, letterSpacing: 1 },
+  ruleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  pointsChip: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.pill,
+    backgroundColor: colors.brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pointsChipZero: { backgroundColor: colors.text.muted },
+  pointsChipBonus: { backgroundColor: colors.brand.accent },
+  maxBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.brand.primaryLight,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
   matchCard: { marginBottom: spacing.lg },
   teamsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   teamCol: { flex: 1, alignItems: 'center', gap: spacing.sm },

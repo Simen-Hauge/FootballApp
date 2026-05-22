@@ -38,5 +38,16 @@ function matchPointLogic(predictedHomeScore, predictedAwayScore, actualHomeScore
   return 0;
 }
 
+// 5 points if the predicted first goal scorer matches the actual first scorer.
+// playerId is the football-data.org player id (numeric). Returns 0 when either
+// side is missing — that way matches without a scorer prediction or unresolved
+// goal data simply contribute nothing.
+function firstScorerPointLogic(predictedScorerId, actualScorerId) {
+  if (predictedScorerId === null || predictedScorerId === undefined) return 0;
+  if (actualScorerId === null || actualScorerId === undefined) return 0;
+  return predictedScorerId === actualScorerId ? 5 : 0;
+}
+
 exports.matchPointLogic = matchPointLogic;
 exports.tablePointLogic = tablePointLogic;
+exports.firstScorerPointLogic = firstScorerPointLogic;

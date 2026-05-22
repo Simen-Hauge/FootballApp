@@ -13,6 +13,11 @@ const MatchSchema = new mongoose.Schema({
     home: { type: Number, default: null },
     away: { type: Number, default: null },
   },
+  firstGoalScorer: {
+    playerId: { type: Number, default: null },
+    playerName: { type: String, default: null },
+    minute: { type: Number, default: null },
+  },
   kickoffDateTime: { type: Date, required: true, index: true },
   matchweek: { type: Number, default: null },
   stage: { type: String, default: null },
