@@ -13,6 +13,7 @@ router.patch('/:groupId', controller.renameGroup);
 router.delete('/:groupId', controller.deleteGroup);
 router.post('/:groupId/addPlayer', controller.addPlayerToGroup);
 router.post('/:groupId/removePlayer', controller.removePlayerFromGroup);
+router.post('/:groupId/transferOwnership', controller.transferOwnership);
 router.post('/:groupId/resetPlayerScores', controller.resetPlayerScores);
 
 module.exports = router;

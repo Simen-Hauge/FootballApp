@@ -26,23 +26,25 @@ interface ProfileResponse {
   player: ApiPlayer;
 }
 
+interface RequestCodeResponse {
+  message: string;
+  ttlSeconds: number;
+}
+
 function toSession(p: ApiPlayer, token: string): PlayerSession {
   return { id: String(p.id), email: p.email, name: p.name, token, points: p.points };
 }
 
-export async function signUp(name: string, email: string, password: string): Promise<PlayerSession> {
-  const data = await api.post<AuthResponse>('/api/players/signup', {
-    name: name.trim(),
+export async function requestSignInCode(email: string): Promise<RequestCodeResponse> {
+  return api.post<RequestCodeResponse>('/api/auth/request-code', {
     email: email.trim().toLowerCase(),
-    password,
   });
-  return toSession(data.player, data.token);
 }
 
-export async function signIn(email: string, password: string): Promise<PlayerSession> {
-  const data = await api.post<AuthResponse>('/api/players/login', {
+export async function verifySignInCode(email: string, code: string): Promise<PlayerSession> {
+  const data = await api.post<AuthResponse>('/api/auth/verify-code', {
     email: email.trim().toLowerCase(),
-    password,
+    code: code.trim(),
   });
   return toSession(data.player, data.token);
 }
@@ -59,4 +61,10 @@ export async function updatePassword(currentPassword: string, newPassword: strin
     currentPassword,
     newPassword,
   });
+}
+
+// Wipes the caller's account + all owned data. Identity comes from the JWT
+// stored on the api client — no need to pass an id.
+export async function deleteAccount(): Promise<void> {
+  await api.delete('/api/account');
 }

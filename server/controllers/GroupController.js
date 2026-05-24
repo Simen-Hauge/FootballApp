@@ -280,6 +280,41 @@ exports.deleteGroup = async (req, res) => {
   }
 };
 
+// POST transfer ownership to another member — owner only. The target must
+// already be in the group. The caller loses owner privileges in the same
+// request, so the UI should refetch and the previous owner falls back to
+// regular-member powers (they can still leave on their own).
+exports.transferOwnership = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const targetEmail = String(req.body?.email || '').toLowerCase();
+    if (!targetEmail) return res.status(400).json({ error: 'Target email required' });
+
+    const group = await Group.findById(groupId);
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+    if (group.owner.toLowerCase() !== req.user.email) {
+      return res.status(403).json({ error: 'Only the owner can transfer ownership' });
+    }
+    if (targetEmail === group.owner.toLowerCase()) {
+      return res.status(400).json({ error: 'You are already the owner' });
+    }
+
+    const target = await Player.findOne({ email: targetEmail });
+    if (!target) return res.status(404).json({ error: 'Player not found' });
+    if (!isMember(group, target._id)) {
+      return res.status(400).json({ error: 'That player is not in this group' });
+    }
+
+    group.owner = target.email;
+    await group.save();
+
+    res.json({ message: 'Ownership transferred', group: serializeGroup(group) });
+  } catch (err) {
+    console.error('❌ Error transferring ownership:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 // POST reset all member scores — owner only.
 exports.resetPlayerScores = async (req, res) => {
   try {

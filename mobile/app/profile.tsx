@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Input, Screen, Text } from '@/components/ui';
 import { useAuth } from '@/auth/AuthContext';
-import { updateProfile, updatePassword } from '@/api/players';
+import { updateProfile, updatePassword, deleteAccount } from '@/api/players';
 import { ApiError } from '@/api/client';
 import { colors, radii, spacing } from '@/theme';
 import type { Session } from '@/auth/session';
@@ -56,8 +56,66 @@ export default function ProfileScreen() {
           }}
         />
       </View>
+
+      <DeleteAccountSection
+        onDeleted={async () => {
+          await signOut();
+          router.replace('/auth');
+        }}
+      />
     </Screen>
   );
+}
+
+function DeleteAccountSection({ onDeleted }: { onDeleted: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const runDelete = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteAccount();
+      await onDeleted();
+    } catch (e) {
+      setError((e as Error).message || 'Could not delete account.');
+      setBusy(false);
+    }
+  };
+
+  const onPress = () =>
+    confirm(
+      'Delete your account?',
+      "This permanently removes your profile, predictions, and group memberships. Groups you own will be handed off to the highest-scoring member, or deleted if you're the only one. This can't be undone.",
+      'Delete',
+      runDelete,
+    );
+
+  return (
+    <View style={styles.dangerZone}>
+      <Text variant="caption" color="muted" style={styles.dangerLabel}>DANGER ZONE</Text>
+      <Card style={styles.section}>
+        <Text variant="h3">Delete account</Text>
+        <Text variant="small" color="muted">
+          Erase your profile and everything tied to it. There's no recovery.
+        </Text>
+        {error ? <Text variant="small" color="danger">{error}</Text> : null}
+        <Button label="Delete my account" variant="danger" onPress={onPress} loading={busy} />
+      </Card>
+    </View>
+  );
+}
+
+function confirm(title: string, message: string, confirmLabel: string, onConfirm: () => void) {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    if (window.confirm(`${title}\n\n${message}`)) onConfirm();
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: 'Cancel', style: 'cancel' },
+    { text: confirmLabel, style: 'destructive', onPress: onConfirm },
+  ]);
 }
 
 function NameSection({
@@ -189,5 +247,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border.subtle,
     marginBottom: spacing.lg,
   },
-  signOutWrap: { marginTop: spacing.md, marginBottom: spacing.xl },
+  signOutWrap: { marginTop: spacing.md, marginBottom: spacing.lg },
+  dangerZone: { marginTop: spacing.lg, marginBottom: spacing.xl },
+  dangerLabel: { marginLeft: spacing.xs, marginBottom: spacing.sm },
 });

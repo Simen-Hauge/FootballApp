@@ -1,5 +1,10 @@
 const bcrypt = require('bcryptjs');
 const Player = require('../models/Player');
+const Group = require('../models/Group');
+const Prediction = require('../models/Prediction');
+const GroupStandingPrediction = require('../models/GroupStandingPrediction');
+const EmailCode = require('../models/EmailCode');
+const Activity = require('../models/Activity');
 const { signToken } = require('../middleware/auth');
 
 // GET all players. Emails removed — they're PII and not needed by clients.
@@ -208,15 +213,88 @@ async function incrementPlayerScore(email, points) {
   return result;
 }
 
-// DELETE — caller can only delete themselves.
+// Cascade-delete the authenticated user's account along with all data they own
+// or are referenced from. Required for App Store guideline 5.1.1(v): users
+// must be able to delete their account in-app, and the deletion must actually
+// remove their data.
+//
+// What gets wiped:
+//   - Predictions (by email)
+//   - GroupStandingPredictions (by email)
+//   - EmailCodes (by email — any pending OTP sessions)
+//   - Activities (by email — anything they generated)
+//   - Group memberships (Group.players references)
+//   - Groups they own:
+//       - if there are other members → transfer ownership (highest-points
+//         remaining player, alphabetical tiebreak)
+//       - if they're the only member → delete the group entirely
+//   - Player document
+//
+// No DB transaction — Mongo transactions require a replica set and aren't
+// load-bearing here. Order matters: dependencies first, Player last. If a
+// later step throws, the user is partially deleted; acceptable because they
+// can retry and the operation is idempotent (each delete-by-email is safe to
+// re-run).
+async function cascadeDeleteAccount({ playerId, email }) {
+  await Prediction.deleteMany({ email });
+  await GroupStandingPrediction.deleteMany({ email });
+  await EmailCode.deleteMany({ email });
+  await Activity.deleteMany({ email });
+
+  // Remove from any group's player list (groups they don't own).
+  await Group.updateMany({ players: playerId }, { $pull: { players: playerId } });
+
+  // Handle groups they own — operate on the post-removal player list.
+  const ownedGroups = await Group.find({ owner: email });
+  for (const group of ownedGroups) {
+    if (!group.players || group.players.length === 0) {
+      await Group.deleteOne({ _id: group._id });
+      continue;
+    }
+    // Promote the highest-scoring remaining member, alphabetical tiebreak.
+    // Keeps the leadership decision deterministic and predictable.
+    const candidates = await Player.find({ _id: { $in: group.players } })
+      .select('email name points')
+      .sort({ points: -1, name: 1 });
+    const heir = candidates[0];
+    if (!heir) {
+      await Group.deleteOne({ _id: group._id });
+      continue;
+    }
+    group.owner = heir.email;
+    await group.save();
+  }
+
+  await Player.deleteOne({ _id: playerId });
+}
+
+// DELETE /api/account — wipes the authenticated user's account. Identity comes
+// from the JWT, never from the URL.
+exports.deleteAccount = async (req, res) => {
+  try {
+    const player = await Player.findById(req.user.id).select('_id email');
+    if (!player) return res.status(404).json({ error: 'Account not found' });
+
+    await cascadeDeleteAccount({ playerId: player._id, email: player.email });
+    res.json({ message: 'Account deleted' });
+  } catch (err) {
+    console.error('❌ deleteAccount error:', err);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+};
+
+// DELETE /api/players/:id — legacy route kept so the deployed web client
+// doesn't 404. Validates caller identity and forwards to the same cascade.
 exports.deletePlayer = async (req, res) => {
   try {
     if (String(req.params.id) !== String(req.user.id)) {
       return res.status(403).json({ error: 'You can only delete your own account' });
     }
-    const result = await Player.deleteOne({ _id: req.params.id });
-    if (result.deletedCount > 0) return res.json({ message: 'Player deleted' });
-    res.status(404).json({ error: 'Player not found' });
+    const player = await Player.findById(req.user.id).select('_id email');
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+
+    await cascadeDeleteAccount({ playerId: player._id, email: player.email });
+    res.json({ message: 'Player deleted' });
   } catch (err) {
     console.error('❌ deletePlayer error:', err);
     res.status(500).json({ error: 'Failed to delete player' });

@@ -47,6 +47,11 @@ export const groupsApi = {
   resetScores: (groupId: string) => api.post(`/api/groups/${groupId}/resetPlayerScores`, {}),
   removePlayer: (groupId: string, email: string) =>
     api.post(`/api/groups/${groupId}/removePlayer`, { email: email.toLowerCase() }),
+  transferOwnership: (groupId: string, email: string) =>
+    api.post<{ message: string; group: GroupSummary }>(
+      `/api/groups/${groupId}/transferOwnership`,
+      { email: email.toLowerCase() },
+    ),
   rename: (groupId: string, email: string, groupName: string) =>
     api.patch<{ message: string; group: GroupSummary }>(`/api/groups/${groupId}`, {
       email: email.toLowerCase(),

@@ -5,6 +5,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
+const authRoutes = require('./routes/Auth');
+const accountRoutes = require('./routes/Account');
 const playersRoutes = require('./routes/Players');
 const predictionRoutes = require('./routes/Predictions');
 const matchRoutes = require('./routes/Matches');
@@ -51,7 +53,13 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '5mb' }));
 
+// Trust the platform's load balancer (render, etc.) so req.ip reflects the
+// real client address. Required for rate-limit keys to actually work.
+app.set('trust proxy', 1);
+
 // Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/account', accountRoutes);
 app.use('/api/players', playersRoutes);
 app.use('/api/predictions', predictionRoutes);
 app.use('/api/matches', matchRoutes);

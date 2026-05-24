@@ -7,7 +7,14 @@ import { useAuth } from '@/auth/AuthContext';
 import { groupsApi, type GroupDetail, type GroupMember } from '@/api/groups';
 import { colors, radii, spacing } from '@/theme';
 
-type BusyKey = 'reset' | 'leave' | 'rename' | 'delete' | `kick:${string}` | null;
+type BusyKey =
+  | 'reset'
+  | 'leave'
+  | 'rename'
+  | 'delete'
+  | `kick:${string}`
+  | `promote:${string}`
+  | null;
 
 export default function GroupSettingsScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
@@ -142,6 +149,24 @@ export default function GroupSettingsScreen() {
       },
     );
 
+  const handlePromote = (member: GroupMember) =>
+    confirm(
+      `Make ${member.name} the leader?`,
+      `${member.name} will take over as group owner. You'll go back to being a regular member and lose owner controls (rename, kick, delete, reset scores).`,
+      'Make leader',
+      async () => {
+        setBusy(`promote:${member._id}`);
+        try {
+          await groupsApi.transferOwnership(group.id, member.email);
+          load();
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setBusy(null);
+        }
+      },
+    );
+
   return (
     <Screen>
       <View style={styles.header}>
@@ -185,17 +210,32 @@ export default function GroupSettingsScreen() {
                 </View>
               </View>
               {isOwner && !isMemberOwner ? (
-                <Pressable
-                  onPress={() => handleKick(m)}
-                  hitSlop={8}
-                  style={({ pressed }) => [styles.kickButton, pressed && { opacity: 0.5 }]}
-                >
-                  {busy === `kick:${m._id}` ? (
-                    <ActivityIndicator size="small" color={colors.state.danger} />
-                  ) : (
-                    <Ionicons name="person-remove-outline" size={18} color={colors.state.danger} />
-                  )}
-                </Pressable>
+                <View style={styles.memberActions}>
+                  <Pressable
+                    onPress={() => handlePromote(m)}
+                    hitSlop={8}
+                    accessibilityLabel={`Make ${m.name} the leader`}
+                    style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.5 }]}
+                  >
+                    {busy === `promote:${m._id}` ? (
+                      <ActivityIndicator size="small" color={colors.brand.primary} />
+                    ) : (
+                      <Ionicons name="ribbon-outline" size={18} color={colors.brand.primary} />
+                    )}
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleKick(m)}
+                    hitSlop={8}
+                    accessibilityLabel={`Remove ${m.name}`}
+                    style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.5 }]}
+                  >
+                    {busy === `kick:${m._id}` ? (
+                      <ActivityIndicator size="small" color={colors.state.danger} />
+                    ) : (
+                      <Ionicons name="person-remove-outline" size={18} color={colors.state.danger} />
+                    )}
+                  </Pressable>
+                </View>
               ) : null}
             </View>
           );
@@ -302,6 +342,8 @@ const styles = StyleSheet.create({
   memberMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
   tag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radii.sm },
   tagText: { fontSize: 9 },
+  memberActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  iconButton: { padding: spacing.xs },
   kickButton: { padding: spacing.xs },
   dangerLabel: { marginLeft: spacing.xs, marginBottom: spacing.sm },
   actionCard: {

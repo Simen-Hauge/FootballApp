@@ -1,52 +1,96 @@
-import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Card, Input, Screen, Text } from '@/components/ui';
 import { colors, radii, spacing } from '@/theme';
 import { useAuth } from '@/auth/AuthContext';
-import { signIn, signUp } from '@/api/players';
+import { requestSignInCode, verifySignInCode } from '@/api/players';
 import { ApiError } from '@/api/client';
 
-type Mode = 'signin' | 'signup';
+type Stage = 'email' | 'code';
+
+const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState<Mode>('signin');
-  const [name, setName] = useState('');
+  const [stage, setStage] = useState<Stage>('email');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
   const router = useRouter();
   const { signIn: storeSession } = useAuth();
 
-  const submit = async () => {
+  // Resend cooldown ticker.
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    timerRef.current = setInterval(() => {
+      setResendIn((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [resendIn]);
+
+  const submitEmail = async () => {
     setError(null);
-
-    if (!email || !password || (mode === 'signup' && !name)) {
-      setError('Fill every field to continue.');
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) {
+      setError('Enter a valid email.');
       return;
     }
-    if (mode === 'signup' && password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const session = mode === 'signup'
-        ? await signUp(name, email, password)
-        : await signIn(email, password);
-      await storeSession(session);
-      router.replace('/(tabs)');
+      await requestSignInCode(trimmed);
+      setStage('code');
+      setCode('');
+      setResendIn(RESEND_COOLDOWN_SECONDS);
     } catch (e) {
-      if (e instanceof ApiError) {
-        setError(humanize(e));
-      } else {
-        setError((e as Error).message);
-      }
+      setError(humanize(e));
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submitCode = async () => {
+    setError(null);
+    const trimmed = code.trim();
+    if (!/^\d{6}$/.test(trimmed)) {
+      setError('Enter the 6-digit code from your email.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const session = await verifySignInCode(email.trim().toLowerCase(), trimmed);
+      await storeSession(session);
+      router.replace('/(tabs)');
+    } catch (e) {
+      setError(humanize(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const resend = async () => {
+    if (resendIn > 0 || submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await requestSignInCode(email.trim().toLowerCase());
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+    } catch (e) {
+      setError(humanize(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const useDifferentEmail = () => {
+    setStage('email');
+    setCode('');
+    setError(null);
+    setResendIn(0);
   };
 
   return (
@@ -68,80 +112,83 @@ export default function AuthScreen() {
         </View>
 
         <Card style={styles.formCard}>
-          <View style={styles.tabs}>
-            <TabPill label="Sign in" active={mode === 'signin'} onPress={() => { setMode('signin'); setError(null); }} />
-            <TabPill label="Sign up" active={mode === 'signup'} onPress={() => { setMode('signup'); setError(null); }} />
-          </View>
-
-          <View style={styles.fields}>
-            {mode === 'signup' ? (
+          {stage === 'email' ? (
+            <>
+              <View style={styles.stageHeader}>
+                <Text variant="h3">Sign in</Text>
+                <Text variant="small" color="muted">
+                  Enter your email and we'll send you a 6-digit code.
+                </Text>
+              </View>
               <Input
-                label="Name"
-                value={name}
-                onChangeText={setName}
-                placeholder="Your display name"
-                autoCapitalize="words"
-                returnKeyType="next"
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                placeholder="you@example.com"
+                returnKeyType="done"
+                onSubmitEditing={submitEmail}
               />
-            ) : null}
-            <Input
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              placeholder="you@example.com"
-              returnKeyType="next"
-            />
-            <Input
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              placeholder="••••••••"
-              returnKeyType="done"
-              hint={mode === 'signup' ? 'At least 6 characters.' : undefined}
-              onSubmitEditing={submit}
-            />
-          </View>
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Text variant="small" color="danger">{error}</Text>
+                </View>
+              ) : null}
+              <Button label="Send code" onPress={submitEmail} loading={submitting} size="lg" />
+            </>
+          ) : (
+            <>
+              <View style={styles.stageHeader}>
+                <Text variant="h3">Enter your code</Text>
+                <Text variant="small" color="muted">
+                  We emailed a 6-digit code to{' '}
+                  <Text variant="small" color="primary">{email.trim().toLowerCase()}</Text>.
+                </Text>
+              </View>
+              <Input
+                label="Verification code"
+                value={code}
+                onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
+                keyboardType="number-pad"
+                placeholder="000000"
+                maxLength={6}
+                returnKeyType="done"
+                onSubmitEditing={submitCode}
+                style={styles.codeInput}
+              />
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Text variant="small" color="danger">{error}</Text>
+                </View>
+              ) : null}
+              <Button label="Verify" onPress={submitCode} loading={submitting} size="lg" />
 
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text variant="small" color="danger">{error}</Text>
-            </View>
-          ) : null}
-
-          <Button
-            label={mode === 'signin' ? 'Sign in' : 'Create account'}
-            onPress={submit}
-            loading={submitting}
-            size="lg"
-          />
+              <View style={styles.actionsRow}>
+                <Pressable onPress={resend} disabled={resendIn > 0 || submitting} hitSlop={6}>
+                  <Text variant="small" color={resendIn > 0 || submitting ? 'muted' : 'brand'}>
+                    {resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={useDifferentEmail} hitSlop={6}>
+                  <Text variant="small" color="brand">Use a different email</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
         </Card>
       </KeyboardAvoidingView>
     </Screen>
   );
 }
 
-function TabPill({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Text
-      variant="bodyBold"
-      color={active ? 'brand' : 'muted'}
-      onPress={onPress}
-      style={[pillStyles.pill, active && pillStyles.active]}
-    >
-      {label}
-    </Text>
-  );
-}
-
-function humanize(err: ApiError): string {
-  if (err.status === 401) return 'Wrong email or password.';
-  if (err.status === 409) return 'An account with that email already exists.';
-  if (err.status === 400) return err.message || 'Missing required fields.';
-  return err.message || 'Something went wrong. Try again.';
+function humanize(e: unknown): string {
+  if (e instanceof ApiError) {
+    // Server already returns user-friendly messages for these endpoints.
+    return e.message || 'Something went wrong. Try again.';
+  }
+  return (e as Error).message || 'Something went wrong. Try again.';
 }
 
 const styles = StyleSheet.create({
@@ -155,16 +202,24 @@ const styles = StyleSheet.create({
   headline: { marginTop: spacing.xs },
   sub: { marginTop: spacing.xs, lineHeight: 22 },
   formCard: { gap: spacing.lg },
-  tabs: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.xs },
-  fields: { gap: spacing.md },
+  stageHeader: { gap: spacing.xs },
+  codeInput: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: 12,
+    textAlign: 'center',
+    color: colors.brand.primary,
+    fontVariant: ['tabular-nums'],
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
   errorBox: {
     backgroundColor: colors.state.dangerBg,
     padding: spacing.md,
     borderRadius: 10,
   },
-});
-
-const pillStyles = StyleSheet.create({
-  pill: { paddingVertical: spacing.xs },
-  active: { borderBottomWidth: 2, borderBottomColor: colors.brand.primary },
 });
