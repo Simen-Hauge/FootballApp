@@ -56,13 +56,6 @@ export async function updateProfile(name: string): Promise<ApiPlayer> {
   return data.player;
 }
 
-export async function updatePassword(currentPassword: string, newPassword: string): Promise<void> {
-  await api.put('/api/players/password', {
-    currentPassword,
-    newPassword,
-  });
-}
-
 // Wipes the caller's account + all owned data. Identity comes from the JWT
 // stored on the api client — no need to pass an id.
 export async function deleteAccount(): Promise<void> {

@@ -4,13 +4,23 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Screen, Text } from '@/components/ui';
 import { useAuth } from '@/auth/AuthContext';
-import { useGamemode, SERVER_GAMEMODE_ID } from '@/gamemode';
 import { groupsApi, type GroupDetail, type GroupSummary } from '@/api/groups';
 import { colors, radii, spacing } from '@/theme';
 
+// Map the server's numeric gamemode to a compact chip — label + paired bg/fg
+// so each competition reads as distinct at a glance. The fallback ("?") shows
+// for groups created against a gamemode the client doesn't yet know about.
+function competitionChipFor(gamemode: number): { label: string; bg: string; fg: string } {
+  switch (gamemode) {
+    case 2: return { label: 'PL', bg: colors.brand.secondaryLight, fg: colors.brand.secondaryDark };
+    case 3: return { label: 'WC', bg: colors.brand.accentLight, fg: colors.text.onAccent };
+    case 4: return { label: 'CL', bg: colors.brand.primaryLight, fg: colors.brand.primaryDark };
+    default: return { label: '?', bg: colors.surface.cardSubtle, fg: colors.text.muted };
+  }
+}
+
 export default function GroupsTab() {
   const { session } = useAuth();
-  const { meta, gamemode } = useGamemode();
   const router = useRouter();
 
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
@@ -31,9 +41,9 @@ export default function GroupsTab() {
           setError(null);
           setLoading(false);
 
-          const currentModeId = SERVER_GAMEMODE_ID[gamemode];
-          const relevant = data.filter((g) => g.gamemode === currentModeId);
-          relevant.forEach((g) => {
+          // Fetch standings for every group — no longer scoped to current
+          // gamemode, since groups from all competitions are shown together.
+          data.forEach((g) => {
             groupsApi
               .get(g._id)
               .then((d) => {
@@ -54,16 +64,15 @@ export default function GroupsTab() {
       return () => {
         cancelled = true;
       };
-    }, [session, gamemode]),
+    }, [session]),
   );
 
-  const currentModeId = SERVER_GAMEMODE_ID[gamemode];
-  const filtered = (groups ?? []).filter((g) => g.gamemode === currentModeId);
+  const allGroups = groups ?? [];
 
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="caption" color="brand">{meta.shortLabel} · COMPETE</Text>
+        <Text variant="caption" color="brand">COMPETE</Text>
         <Text variant="h1">Groups</Text>
       </View>
 
@@ -78,11 +87,11 @@ export default function GroupsTab() {
         </View>
       ) : error ? (
         <Card><Text variant="body" color="danger">{error}</Text></Card>
-      ) : filtered.length === 0 ? (
-        <EmptyState gamemodeLabel={meta.label} />
+      ) : allGroups.length === 0 ? (
+        <EmptyState />
       ) : (
         <View style={styles.list}>
-          {filtered.map((g) => (
+          {allGroups.map((g) => (
             <GroupCard
               key={g._id}
               group={g}
@@ -97,11 +106,11 @@ export default function GroupsTab() {
   );
 }
 
-function EmptyState({ gamemodeLabel }: { gamemodeLabel: string }) {
+function EmptyState() {
   return (
     <Card style={styles.empty}>
       <Ionicons name="people-outline" size={32} color={colors.text.muted} />
-      <Text variant="h3" align="center">No {gamemodeLabel} groups yet</Text>
+      <Text variant="h3" align="center">No groups yet</Text>
       <Text variant="small" color="muted" align="center">
         Create one to play with friends, or paste a join code if someone invited you.
       </Text>
@@ -127,9 +136,16 @@ function GroupCard({ group, detail, meEmail, onPress }: GroupCardProps) {
   const totalPlayers = detail?.members.length ?? 0;
   const leaderPoints = sorted[0]?.points ?? 0;
 
+  const chip = competitionChipFor(group.gamemode);
+
   return (
     <Card onPress={onPress} padding={0} style={styles.card}>
       <View style={styles.cardHeader}>
+        <View style={[styles.compChip, { backgroundColor: chip.bg }]}>
+          <Text variant="caption" style={[styles.compChipText, { color: chip.fg }]}>
+            {chip.label}
+          </Text>
+        </View>
         <View style={styles.cardHeaderText}>
           <Text variant="bodyBold" numberOfLines={1}>{group.groupName}</Text>
           <Text variant="small" color="muted" numberOfLines={1}>
@@ -252,6 +268,15 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   cardHeaderText: { flex: 1, gap: 2 },
+  compChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    minWidth: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compChipText: { fontWeight: '800', letterSpacing: 1 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border.subtle },
 
   standings: { paddingVertical: spacing.xs },
