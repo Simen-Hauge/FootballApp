@@ -56,6 +56,8 @@ exports.makePrediction = async (req, res) => {
 
     if (wasFirstPrediction && match) {
       try {
+        // Intentionally exclude `score` — broadcasting predictions before kickoff
+        // would defeat the reveal-at-kickoff rule in getPredictionsForMatch.
         await Activity.create({
           email: lcEmail,
           type: 'PREDICTION_SAVED',
@@ -64,7 +66,6 @@ exports.makePrediction = async (req, res) => {
             matchid,
             homeTeam: match.homeTeam,
             awayTeam: match.awayTeam,
-            score,
           },
         });
       } catch (e) {

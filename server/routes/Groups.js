@@ -7,7 +7,6 @@ router.use(requireAuth);
 
 router.get('/player/:email', controller.getGroupsByPlayerEmail);
 router.get('/:id', controller.getGroupById);
-router.get('/:groupId/activity', controller.getGroupActivity);
 router.post('/createGroup', controller.createGroup);
 router.post('/join', controller.joinGroupByCode);
 router.patch('/:groupId', controller.renameGroup);

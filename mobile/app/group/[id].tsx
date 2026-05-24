@@ -6,9 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card, Screen, Text } from '@/components/ui';
 import { useAuth } from '@/auth/AuthContext';
 import { groupsApi, type GroupDetail } from '@/api/groups';
-import { activitiesApi, type ActivityEntry } from '@/api/activities';
 import { colors, radii, spacing } from '@/theme';
-import { timeAgo } from '@/utils/timeAgo';
 
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,7 +14,6 @@ export default function GroupDetailScreen() {
   const router = useRouter();
 
   const [group, setGroup] = useState<GroupDetail | null>(null);
-  const [activity, setActivity] = useState<ActivityEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -26,14 +23,11 @@ export default function GroupDetailScreen() {
       if (!id) return;
       let cancelled = false;
       setLoading(true);
-      Promise.all([
-        groupsApi.get(id),
-        activitiesApi.forGroup(id, 15).catch(() => [] as ActivityEntry[]),
-      ])
-        .then(([g, acts]) => {
+      groupsApi
+        .get(id)
+        .then((g) => {
           if (cancelled) return;
           setGroup(g);
-          setActivity(acts);
           setError(null);
         })
         .catch((e) => {
@@ -127,49 +121,64 @@ export default function GroupDetailScreen() {
       </Card>
 
       <View style={styles.section}>
-        <Text variant="h3" style={styles.sectionTitle}>Leaderboard</Text>
+        <View style={styles.scoreboardHeader}>
+          <Text variant="h3" style={styles.sectionTitle}>Scoreboard</Text>
+          <Text variant="caption" color="muted">
+            {sortedMembers.length} {sortedMembers.length === 1 ? 'player' : 'players'}
+          </Text>
+        </View>
         <Card padding={0}>
-          {sortedMembers.map((m, idx) => {
-            const isYou = session?.email?.toLowerCase() === m.email.toLowerCase();
-            return (
-              <View
-                key={m._id}
-                style={[styles.memberRow, idx === sortedMembers.length - 1 && styles.memberRowLast]}
-              >
-                <View style={[styles.rank, idx === 0 && styles.rankFirst]}>
-                  <Text variant="bodyBold" color={idx === 0 ? 'inverse' : 'primary'}>{idx + 1}</Text>
+          <View style={styles.tableHead}>
+            <Text variant="caption" color="muted" style={styles.colRank}>#</Text>
+            <Text variant="caption" color="muted" style={styles.colName}>PLAYER</Text>
+            <Text variant="caption" color="muted" style={styles.colPoints}>PTS</Text>
+          </View>
+          {sortedMembers.length === 0 ? (
+            <View style={styles.emptyRow}>
+              <Text variant="small" color="muted">No players yet — share the code to get started.</Text>
+            </View>
+          ) : (
+            sortedMembers.map((m, idx) => {
+              const isYou = session?.email?.toLowerCase() === m.email.toLowerCase();
+              const points = m.points ?? 0;
+              const leaderPoints = sortedMembers[0]?.points ?? 0;
+              const gap = leaderPoints - points;
+              const isFirst = idx === 0;
+              return (
+                <View
+                  key={m._id}
+                  style={[
+                    styles.memberRow,
+                    isYou && styles.memberRowSelf,
+                    idx === sortedMembers.length - 1 && styles.memberRowLast,
+                  ]}
+                >
+                  <View style={[styles.rank, isFirst && styles.rankFirst, isYou && !isFirst && styles.rankSelf]}>
+                    {isFirst ? (
+                      <Ionicons name="trophy" size={14} color={colors.text.onAccent} />
+                    ) : (
+                      <Text variant="bodyBold" color={isYou ? 'inverse' : 'primary'}>{idx + 1}</Text>
+                    )}
+                  </View>
+                  <View style={styles.memberNameWrap}>
+                    <Text variant="bodyBold" numberOfLines={1}>{m.name}</Text>
+                    {isYou ? <Text variant="caption" color="brand">YOU</Text> : null}
+                  </View>
+                  <View style={styles.pointsCol}>
+                    <Text variant="bodyBold">{points}</Text>
+                    {isFirst ? (
+                      <Text variant="caption" color="muted">leader</Text>
+                    ) : gap > 0 ? (
+                      <Text variant="caption" color="muted">-{gap}</Text>
+                    ) : (
+                      <Text variant="caption" color="muted">tied</Text>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.memberNameWrap}>
-                  <Text variant="bodyBold">{m.name}</Text>
-                  {isYou ? <Text variant="caption" color="brand">YOU</Text> : null}
-                </View>
-                <Text variant="bodyBold">{m.points ?? 0}</Text>
-              </View>
-            );
-          })}
+              );
+            })
+          )}
         </Card>
-      </View>
-
-      <View style={styles.section}>
-        <Text variant="h3" style={styles.sectionTitle}>Recent activity</Text>
-        {activity && activity.length > 0 ? (
-          <Card padding={0}>
-            {activity.map((a, idx) => (
-              <ActivityRow
-                key={a.id}
-                entry={a}
-                isLast={idx === activity.length - 1}
-                isYou={!!session?.email && session.email.toLowerCase() === a.actorEmail.toLowerCase()}
-              />
-            ))}
-          </Card>
-        ) : (
-          <Card>
-            <Text variant="small" color="muted">
-              Nothing yet — predictions and member joins will show up here.
-            </Text>
-          </Card>
-        )}
       </View>
 
       <View style={styles.footer}>
@@ -183,54 +192,6 @@ export default function GroupDetailScreen() {
       </View>
     </Screen>
   );
-}
-
-function ActivityRow({ entry, isLast, isYou }: { entry: ActivityEntry; isLast: boolean; isYou: boolean }) {
-  const description = describeActivity(entry);
-  const icon = iconForActivity(entry.type);
-  return (
-    <View style={[styles.activityRow, isLast && styles.activityRowLast]}>
-      <View style={styles.activityIcon}>
-        <Ionicons name={icon} size={16} color={colors.brand.primary} />
-      </View>
-      <View style={styles.activityText}>
-        <Text variant="small" numberOfLines={2}>
-          <Text variant="bodyBold">{entry.actorName}{isYou ? ' (you)' : ''}</Text>
-          {' '}{description}
-        </Text>
-        <Text variant="caption" color="muted">{timeAgo(entry.createdAt)}</Text>
-      </View>
-    </View>
-  );
-}
-
-function describeActivity(a: ActivityEntry): string {
-  const p = a.payload;
-  switch (a.type) {
-    case 'PREDICTION_SAVED': {
-      const h = p.score?.home ?? '?';
-      const aw = p.score?.away ?? '?';
-      return `predicted ${p.homeTeam ?? 'home'} ${h}–${aw} ${p.awayTeam ?? 'away'}`;
-    }
-    case 'GROUP_JOINED':
-      return `joined ${p.groupName ?? 'the group'}`;
-    case 'GROUP_CREATED':
-      return `created ${p.groupName ?? 'the group'}`;
-    case 'POINTS_AWARDED':
-      return `earned ${p.points ?? 0} pts on ${p.homeTeam ?? '?'} vs ${p.awayTeam ?? '?'}`;
-    default:
-      return '';
-  }
-}
-
-function iconForActivity(type: ActivityEntry['type']): React.ComponentProps<typeof Ionicons>['name'] {
-  switch (type) {
-    case 'PREDICTION_SAVED': return 'create-outline';
-    case 'GROUP_JOINED': return 'person-add-outline';
-    case 'GROUP_CREATED': return 'star-outline';
-    case 'POINTS_AWARDED': return 'trophy-outline';
-    default: return 'ellipse-outline';
-  }
 }
 
 const styles = StyleSheet.create({
@@ -258,6 +219,25 @@ const styles = StyleSheet.create({
   codeActionPressed: { opacity: 0.7 },
   section: { gap: spacing.md, marginBottom: spacing.lg },
   sectionTitle: { marginLeft: spacing.xs },
+  scoreboardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xs,
+  },
+  tableHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.subtle,
+  },
+  colRank: { width: 28, letterSpacing: 1 },
+  colName: { flex: 1, letterSpacing: 1 },
+  colPoints: { minWidth: 44, textAlign: 'right', letterSpacing: 1 },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -267,6 +247,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border.subtle,
   },
+  memberRowSelf: { backgroundColor: colors.brand.primaryLight },
   memberRowLast: { borderBottomWidth: 0 },
   rank: {
     width: 28,
@@ -277,27 +258,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rankFirst: { backgroundColor: colors.brand.accent },
+  rankSelf: { backgroundColor: colors.brand.primary },
   memberNameWrap: { flex: 1, gap: 2 },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.subtle,
-  },
-  activityRowLast: { borderBottomWidth: 0 },
-  activityIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: radii.pill,
-    backgroundColor: colors.brand.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  activityText: { flex: 1, gap: 2 },
+  pointsCol: { alignItems: 'flex-end', minWidth: 44 },
+  emptyRow: { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },
   footer: { alignItems: 'center', paddingVertical: spacing.lg, marginBottom: spacing.xl },
   settingsLink: {
     flexDirection: 'row',

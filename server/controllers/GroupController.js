@@ -280,52 +280,6 @@ exports.deleteGroup = async (req, res) => {
   }
 };
 
-// GET recent activity for a group. Members only — the feed includes other
-// members' emails and prediction history.
-exports.getGroupActivity = async (req, res) => {
-  try {
-    const { groupId } = req.params;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
-
-    const group = await Group.findById(groupId).populate('players', 'name email');
-    if (!group) return res.status(404).json({ error: 'Group not found' });
-
-    const memberEmails = group.players.map((p) => p.email);
-    if (!memberEmails.includes(req.user.email)) {
-      return res.status(403).json({ error: 'Only members can view group activity' });
-    }
-    if (memberEmails.length === 0) return res.json([]);
-
-    const gamemodeStr = String(group.gamemode);
-
-    const activities = await Activity.find({
-      email: { $in: memberEmails },
-      $or: [
-        { type: { $in: ['PREDICTION_SAVED', 'POINTS_AWARDED'] }, gamemode: gamemodeStr },
-        { type: { $in: ['GROUP_CREATED', 'GROUP_JOINED'] }, groupId: group._id },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .limit(limit);
-
-    const nameByEmail = new Map(group.players.map((p) => [p.email, p.name]));
-
-    res.json(
-      activities.map((a) => ({
-        id: a._id,
-        type: a.type,
-        actorEmail: a.email,
-        actorName: nameByEmail.get(a.email) ?? a.email,
-        payload: a.payload,
-        createdAt: a.createdAt,
-      })),
-    );
-  } catch (err) {
-    console.error('❌ getGroupActivity error:', err);
-    res.status(500).json({ error: 'Failed to fetch activity' });
-  }
-};
-
 // POST reset all member scores — owner only.
 exports.resetPlayerScores = async (req, res) => {
   try {
@@ -344,9 +298,12 @@ exports.resetPlayerScores = async (req, res) => {
   }
 };
 
+// Matches the mobile `GroupSummary` shape used by listMine — `_id`, not `id`.
+// getGroupById has its own serializer that returns `id` for `GroupDetail`;
+// don't conflate the two.
 function serializeGroup(group) {
   return {
-    id: group._id,
+    _id: group._id,
     groupName: group.groupName,
     tournament: group.tournament,
     gamemode: group.gamemode,
