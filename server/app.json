@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "74c2f387-ecca-42ae-b3f2-2b09ddeadbbd"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "footyguru",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

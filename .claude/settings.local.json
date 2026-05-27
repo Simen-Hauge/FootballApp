@@ -10,7 +10,9 @@
       "Bash(node -e ' *)",
       "PowerShell(Get-Process -Id 9368,27716 -ErrorAction SilentlyContinue)",
       "Bash(npm test *)",
-      "Bash(node --test)"
+      "Bash(node --test)",
+      "Bash(git check-ignore *)",
+      "Bash(grep -E \"^\\(mobile/eas\\\\.json|mobile/app\\\\.json|server/\\\\.env\\)$\")"
     ]
   }
 }

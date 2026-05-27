@@ -16,12 +16,6 @@
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "simen@hhnet.no",
-        "ascAppId": "6773849645",
-        "appleTeamId": "2PVB8UC5K3"
-      }
-    }
+    "production": {}
   }
 }
