@@ -5,6 +5,7 @@ const EmailCode = require('../models/EmailCode');
 const { signToken } = require('../middleware/auth');
 const { sendVerificationEmail } = require('../utils/email');
 const { allowedGamemodesFor } = require('../utils/gamemodeFlags');
+const { isReviewerEmail, isValidReviewerOtp } = require('../utils/reviewerAccount');
 
 const CODE_TTL_MINUTES = 10;
 const CODE_TTL_MS = CODE_TTL_MINUTES * 60 * 1000;
@@ -36,6 +37,39 @@ function deriveNameFromEmail(email) {
     .join(' ');
 }
 
+// Upserts the player, marks them verified on first sign-in, and returns the
+// JSON payload sent on a successful auth. Shared by both the normal OTP path
+// and the App Store reviewer bypass so they produce identical-shaped sessions.
+async function signInPayload(email) {
+  let player = await Player.findOne({ email });
+  if (!player) {
+    player = await Player.create({
+      email,
+      name: deriveNameFromEmail(email),
+      verifiedAt: new Date(),
+      points: 0,
+      groups: [],
+    });
+  } else if (!player.verifiedAt) {
+    // Grandfathers pre-OTP accounts on first successful login.
+    player.verifiedAt = new Date();
+    await player.save();
+  }
+
+  const token = signToken(player);
+  return {
+    message: 'Signed in',
+    token,
+    player: {
+      id: player._id,
+      email: player.email,
+      name: player.name,
+      points: player.points || 0,
+      enabledGamemodes: allowedGamemodesFor(player.email),
+    },
+  };
+}
+
 // POST /api/auth/request-code
 // Body: { email }
 // Always responds 200 with a generic payload so an attacker can't probe which
@@ -45,6 +79,14 @@ exports.requestCode = async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     if (!email || !EMAIL_REGEX.test(email)) {
       return res.status(400).json({ error: 'Enter a valid email.' });
+    }
+
+    // App Store reviewer bypass — the OTP for this email is the static value
+    // in REVIEWER_OTP, pre-shared with Apple. Skip Resend (no real email is
+    // ever sent to this address) and return the same generic shape regular
+    // users see, so the response itself is indistinguishable.
+    if (isReviewerEmail(email)) {
+      return res.json({ message: 'Code sent', ttlSeconds: CODE_TTL_MS / 1000 });
     }
 
     // Throttle re-sends per email so a user mashing the button doesn't trigger
@@ -91,6 +133,12 @@ exports.verifyCode = async (req, res) => {
       return res.status(400).json({ error: 'Email and code required.' });
     }
 
+    // App Store reviewer bypass — bypass the EmailCode store entirely and
+    // accept the static REVIEWER_OTP for the configured REVIEWER_EMAIL.
+    if (isValidReviewerOtp(email, code)) {
+      return res.json(await signInPayload(email));
+    }
+
     const record = await EmailCode.findOne({ email, consumedAt: null }).sort({ createdAt: -1 });
     if (!record) {
       return res.status(401).json({ error: 'No active code. Request a new one.' });
@@ -119,33 +167,7 @@ exports.verifyCode = async (req, res) => {
     record.consumedAt = new Date();
     await record.save();
 
-    let player = await Player.findOne({ email });
-    if (!player) {
-      player = await Player.create({
-        email,
-        name: deriveNameFromEmail(email),
-        verifiedAt: new Date(),
-        points: 0,
-        groups: [],
-      });
-    } else if (!player.verifiedAt) {
-      // Grandfathers pre-OTP accounts on first successful login.
-      player.verifiedAt = new Date();
-      await player.save();
-    }
-
-    const token = signToken(player);
-    res.json({
-      message: 'Signed in',
-      token,
-      player: {
-        id: player._id,
-        email: player.email,
-        name: player.name,
-        points: player.points || 0,
-        enabledGamemodes: allowedGamemodesFor(player.email),
-      },
-    });
+    res.json(await signInPayload(email));
   } catch (err) {
     console.error('❌ verifyCode error:', err);
     res.status(500).json({ error: 'Could not verify code. Try again.' });
