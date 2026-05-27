@@ -7,7 +7,8 @@
       "Read(//c/c/Users/simen.hauge/Documents/privat/prosjekter/FootballApp/**)",
       "Bash(npx tsc *)",
       "Bash(npm install *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "PowerShell(Get-Process -Id 9368,27716 -ErrorAction SilentlyContinue)"
     ]
   }
 }

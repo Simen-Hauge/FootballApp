@@ -1,5 +1,6 @@
 require('dotenv').config();
 require('./cron/fetchFinishedMatches')
+require('./cron/resolveTournamentResults')
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -14,6 +15,9 @@ const groupRoutes = require('./routes/Groups');
 const teamRoutes = require('./routes/Teams');
 const standingsRoutes = require('./routes/Standings');
 const groupStandingPredictionRoutes = require('./routes/GroupStandingPredictions');
+const tournamentPredictionRoutes = require('./routes/TournamentPredictions');
+const tournamentResultRoutes = require('./routes/TournamentResults');
+const pointsConfigRoutes = require('./routes/PointsConfig');
 const squadRoutes = require('./routes/Squads');
 
 const app = express();
@@ -67,6 +71,9 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/standings', standingsRoutes);
 app.use('/api/wc/group-predictions', groupStandingPredictionRoutes);
+app.use('/api/wc/tournament-predictions', tournamentPredictionRoutes);
+app.use('/api/wc/tournament-results', tournamentResultRoutes);
+app.use('/api/points-config', pointsConfigRoutes);
 app.use('/api/squads', squadRoutes);
 
 // Start

@@ -1,15 +1,6 @@
 const Group = require('../models/Group');
 const Player = require('../models/Player');
-const Activity = require('../models/Activity');
 const { generateUniqueJoinCode } = require('../utils/joinCode');
-
-async function logActivity(doc) {
-  try {
-    await Activity.create(doc);
-  } catch (e) {
-    console.warn(`⚠️ Failed to log ${doc.type} activity:`, e.message);
-  }
-}
 
 function isMember(group, playerId) {
   return group.players.some((id) => String(id) === String(playerId));
@@ -105,14 +96,6 @@ exports.createGroup = async (req, res) => {
     player.groups.push(newGroup._id);
     await player.save();
 
-    await logActivity({
-      email: cleanEmail,
-      type: 'GROUP_CREATED',
-      groupId: newGroup._id,
-      gamemode: String(gamemode),
-      payload: { groupName: newGroup.groupName, joinCode: newGroup.joinCode },
-    });
-
     res.status(201).json({
       message: 'Group registered',
       group: {
@@ -154,14 +137,6 @@ exports.joinGroupByCode = async (req, res) => {
 
     player.groups.push(group._id);
     await player.save();
-
-    await logActivity({
-      email: player.email,
-      type: 'GROUP_JOINED',
-      groupId: group._id,
-      gamemode: String(group.gamemode),
-      payload: { groupName: group.groupName },
-    });
 
     res.status(200).json({ message: 'Joined group', group: serializeGroup(group) });
   } catch (err) {

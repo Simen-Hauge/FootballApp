@@ -68,6 +68,7 @@ exports.requestCode = async (req, res) => {
     );
 
     await EmailCode.create({ email, codeHash, expiresAt });
+
     await sendVerificationEmail({ to: email, code, ttlMinutes: CODE_TTL_MINUTES });
 
     res.json({ message: 'Code sent', ttlSeconds: CODE_TTL_MS / 1000 });

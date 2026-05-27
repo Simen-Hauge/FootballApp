@@ -52,6 +52,20 @@ export function groupLetter(groupCode: string | null): string {
   return groupCode.replace(/^GROUP_/i, '').replace(/^Group\s+/i, '').trim();
 }
 
+// ---- Teams (full list per competition) ----
+
+export interface CompetitionTeam {
+  competition: string;
+  teamId: number;
+  teamName: string;
+  prevSeasonRank: number | null;
+  logo?: string | null;
+}
+
+export async function getCompetitionTeams(competition = 'WC'): Promise<CompetitionTeam[]> {
+  return api.get<CompetitionTeam[]>(`/api/teams/${competition}`);
+}
+
 // ---- Group-stage prediction persistence ----
 
 export interface ServerGroupPrediction {

@@ -1,7 +1,6 @@
 const Prediction = require('../models/Prediction');
 const Match = require('../models/Match');
 const Player = require('../models/Player');
-const Activity = require('../models/Activity');
 
 // GET a single prediction for a match — always the caller's own prediction.
 exports.getPrediction = async (req, res) => {
@@ -35,7 +34,6 @@ exports.makePrediction = async (req, res) => {
     }
 
     const lcEmail = req.user.email;
-    const wasFirstPrediction = !(await Prediction.exists({ email: lcEmail, matchid, gamemode }));
 
     const update = { score };
     if (firstGoalScorer !== undefined) {
@@ -53,25 +51,6 @@ exports.makePrediction = async (req, res) => {
       { $set: update },
       { new: true, upsert: true }
     );
-
-    if (wasFirstPrediction && match) {
-      try {
-        // Intentionally exclude `score` — broadcasting predictions before kickoff
-        // would defeat the reveal-at-kickoff rule in getPredictionsForMatch.
-        await Activity.create({
-          email: lcEmail,
-          type: 'PREDICTION_SAVED',
-          gamemode: String(gamemode),
-          payload: {
-            matchid,
-            homeTeam: match.homeTeam,
-            awayTeam: match.awayTeam,
-          },
-        });
-      } catch (e) {
-        console.warn('⚠️ Failed to write PREDICTION_SAVED activity:', e.message);
-      }
-    }
 
     res.status(200).json({
       message: 'Prediction saved',

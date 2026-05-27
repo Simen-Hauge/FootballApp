@@ -4,7 +4,6 @@ const Group = require('../models/Group');
 const Prediction = require('../models/Prediction');
 const GroupStandingPrediction = require('../models/GroupStandingPrediction');
 const EmailCode = require('../models/EmailCode');
-const Activity = require('../models/Activity');
 const { signToken } = require('../middleware/auth');
 
 // GET all players. Emails removed — they're PII and not needed by clients.
@@ -222,7 +221,6 @@ async function incrementPlayerScore(email, points) {
 //   - Predictions (by email)
 //   - GroupStandingPredictions (by email)
 //   - EmailCodes (by email — any pending OTP sessions)
-//   - Activities (by email — anything they generated)
 //   - Group memberships (Group.players references)
 //   - Groups they own:
 //       - if there are other members → transfer ownership (highest-points
@@ -239,7 +237,6 @@ async function cascadeDeleteAccount({ playerId, email }) {
   await Prediction.deleteMany({ email });
   await GroupStandingPrediction.deleteMany({ email });
   await EmailCode.deleteMany({ email });
-  await Activity.deleteMany({ email });
 
   // Remove from any group's player list (groups they don't own).
   await Group.updateMany({ players: playerId }, { $pull: { players: playerId } });

@@ -5,6 +5,7 @@ import { Card, Screen, Text } from '@/components/ui';
 import { useAuth } from '@/auth/AuthContext';
 import { useGamemode, SERVER_GAMEMODE_ID, type Gamemode } from '@/gamemode';
 import { predictionsApi, type HistoryEntry } from '@/api/predictions';
+import { PointsInfoButton } from '@/components/PointsInfoModal';
 import { colors, radii, spacing } from '@/theme';
 import { formatKickoff } from '@/utils/date';
 
@@ -57,8 +58,13 @@ export default function PredictionsHistoryScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="caption" color="brand">YOU · HISTORY</Text>
-        <Text variant="h1">My predictions</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color="brand">YOU · HISTORY</Text>
+            <Text variant="h1">My predictions</Text>
+          </View>
+          <PointsInfoButton scope={gamemode === 'world-cup' ? 'wc' : 'match'} />
+        </View>
       </View>
 
       <Card style={styles.statCard}>
@@ -173,6 +179,7 @@ function Divider() { return <View style={styles.divider} />; }
 
 const styles = StyleSheet.create({
   header: { marginTop: spacing.sm, marginBottom: spacing.lg, gap: spacing.xs },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   statCard: { paddingVertical: spacing.lg, marginBottom: spacing.lg },
   statRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   stat: { alignItems: 'center', gap: spacing.xs, flex: 1 },

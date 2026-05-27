@@ -14,7 +14,3 @@ export function formatKickoff(iso: string | Date): string {
   const datePart = d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
   return `${datePart.toUpperCase()} · ${time}`;
 }
-
-export function isoDateOnly(d: Date = new Date()): string {
-  return d.toISOString().slice(0, 10);
-}

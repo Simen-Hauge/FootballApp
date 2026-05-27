@@ -16,6 +16,7 @@ import {
   type GroupPredictions,
 } from '@/wc/groupPredictionStorage';
 import { useAuth } from '@/auth/AuthContext';
+import { PointsInfoButton } from '@/components/PointsInfoModal';
 import { colors, radii, shadows, spacing } from '@/theme';
 
 export default function WCGroupStage() {
@@ -114,8 +115,13 @@ export default function WCGroupStage() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="caption" color="brand">WORLD CUP · GROUP STAGE</Text>
-        <Text variant="h1">Predict the groups</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color="brand">WORLD CUP · GROUP STAGE</Text>
+            <Text variant="h1">Predict the groups</Text>
+          </View>
+          <PointsInfoButton scope="wc" />
+        </View>
         <Text variant="body" color="secondary" style={styles.sub}>
           Drag teams to predict how each of the {groups.length} groups will finish.
           Top 2 + best 8 third-placed teams advance to the Round of 32.
@@ -221,6 +227,7 @@ function seedPredictions(groups: ApiStandingGroup[], saved: GroupPredictions): G
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { marginTop: spacing.sm, marginBottom: spacing.lg, gap: spacing.xs },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   sub: { marginTop: spacing.xs, lineHeight: 21 },
   progress: { marginTop: spacing.sm },
   groupCard: { marginBottom: spacing.md, overflow: 'hidden' },

@@ -38,6 +38,7 @@ export default function RootLayout() {
               <Stack.Screen name="group/join" options={{ headerShown: true, title: 'Join group' }} />
               <Stack.Screen name="group/settings" options={{ headerShown: true, title: 'Group settings' }} />
               <Stack.Screen name="wc/group-stage" options={{ headerShown: true, title: 'Group predictions' }} />
+              <Stack.Screen name="wc/tournament-picks" options={{ headerShown: true, title: 'Tournament picks' }} />
             </Stack>
           </GamemodeProvider>
         </AuthProvider>

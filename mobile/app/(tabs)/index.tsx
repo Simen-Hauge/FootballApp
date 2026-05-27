@@ -10,6 +10,7 @@ import { matchesApi, type Match } from '@/api/matches';
 import { predictionsApi, type Prediction } from '@/api/predictions';
 import { groupsApi } from '@/api/groups';
 import { leaderboardApi } from '@/api/leaderboard';
+import { PointsInfoButton } from '@/components/PointsInfoModal';
 import { colors, radii, spacing } from '@/theme';
 
 export default function Dashboard() {
@@ -74,8 +75,13 @@ export default function Dashboard() {
       </View>
 
       <View style={styles.header}>
-        <Text variant="caption" color="brand">DASHBOARD</Text>
-        <Text variant="h1">Hey, {session?.name?.split(' ')[0] ?? 'predictor'}.</Text>
+        <View style={styles.headerTopRow}>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color="brand">DASHBOARD</Text>
+            <Text variant="h1">Hey, {session?.name?.split(' ')[0] ?? 'predictor'}.</Text>
+          </View>
+          <PointsInfoButton scope={gamemode === 'world-cup' ? 'wc' : 'match'} />
+        </View>
         <Text variant="body" color="secondary" style={styles.tagline}>{meta.tagline}</Text>
       </View>
 
@@ -135,11 +141,18 @@ export default function Dashboard() {
           </Card>
         </View>
         {gamemode === 'world-cup' ? (
-          <Card style={styles.fullCard} onPress={() => router.push('/wc/group-stage')}>
-            <Text variant="caption" color="secondary">WORLD CUP · GROUP STAGE</Text>
-            <Text variant="h3" style={styles.shortcutLabel}>Predict the 12 groups</Text>
-            <Text variant="small" color="muted">Rank the 4 teams in each group from 1st to 4th.</Text>
-          </Card>
+          <>
+            <Card style={styles.fullCard} onPress={() => router.push('/wc/group-stage')}>
+              <Text variant="caption" color="secondary">WORLD CUP · GROUP STAGE</Text>
+              <Text variant="h3" style={styles.shortcutLabel}>Predict the 12 groups</Text>
+              <Text variant="small" color="muted">Rank the 4 teams in each group from 1st to 4th.</Text>
+            </Card>
+            <Card style={styles.fullCard} onPress={() => router.push('/wc/tournament-picks')}>
+              <Text variant="caption" color="secondary">WORLD CUP · TOURNAMENT</Text>
+              <Text variant="h3" style={styles.shortcutLabel}>Golden Boot &amp; Top 3</Text>
+              <Text variant="small" color="muted">Pick the top scorer and the 3 teams on the podium.</Text>
+            </Card>
+          </>
         ) : null}
       </View>
     </Screen>
@@ -162,6 +175,7 @@ function Divider() {
 const styles = StyleSheet.create({
   toggleWrapper: { marginTop: spacing.xs, marginBottom: spacing.lg },
   header: { marginBottom: spacing.lg, gap: spacing.xs },
+  headerTopRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   tagline: { marginTop: spacing.xs, lineHeight: 21 },
   statCard: { paddingVertical: spacing.lg },
   statRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },

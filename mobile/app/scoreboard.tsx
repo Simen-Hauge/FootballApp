@@ -5,6 +5,7 @@ import { Card, Screen, Text } from '@/components/ui';
 import { useAuth } from '@/auth/AuthContext';
 import { useGamemode, SERVER_GAMEMODE_ID } from '@/gamemode';
 import { leaderboardApi, type LeaderboardEntry } from '@/api/leaderboard';
+import { PointsInfoButton } from '@/components/PointsInfoModal';
 import { colors, radii, spacing } from '@/theme';
 
 export default function Scoreboard() {
@@ -44,8 +45,13 @@ export default function Scoreboard() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="caption" color="brand">{meta.shortLabel} · GLOBAL</Text>
-        <Text variant="h1">Scoreboard</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color="brand">{meta.shortLabel} · GLOBAL</Text>
+            <Text variant="h1">Scoreboard</Text>
+          </View>
+          <PointsInfoButton scope={gamemode === 'world-cup' ? 'wc' : 'match'} />
+        </View>
         <Text variant="body" color="secondary" style={styles.sub}>
           Top {meta.label} predictors. Points are awarded after each match settles.
         </Text>
@@ -92,6 +98,7 @@ export default function Scoreboard() {
 
 const styles = StyleSheet.create({
   header: { marginTop: spacing.sm, marginBottom: spacing.lg, gap: spacing.xs },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   sub: { marginTop: spacing.xs, lineHeight: 21 },
   center: { paddingVertical: spacing.xxl, alignItems: 'center' },
   row: {

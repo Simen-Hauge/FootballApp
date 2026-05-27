@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.footyguru.mobile"
+      "bundleIdentifier": "app.footyguru.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "app.footyguru.mobile",
@@ -35,7 +38,10 @@
       "expo-secure-store"
     ],
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "1d8300b9-8c90-4fba-aa4e-9c4e08b15eda"
+      }
     }
   }
 }

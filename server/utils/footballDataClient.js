@@ -58,4 +58,5 @@ module.exports = {
   getMatch: (matchId) => safeGet(`/matches/${matchId}`),
   getTeams: (competition) => safeGet(`/competitions/${competition}/teams`),
   getStandings: (competition, params = {}) => safeGet(`/competitions/${competition}/standings`, params),
+  getScorers: (competition, params = {}) => safeGet(`/competitions/${competition}/scorers`, params),
 };

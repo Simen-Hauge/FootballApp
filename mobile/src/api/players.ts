@@ -35,6 +35,8 @@ function toSession(p: ApiPlayer, token: string): PlayerSession {
   return { id: String(p.id), email: p.email, name: p.name, token, points: p.points };
 }
 
+export type { RequestCodeResponse };
+
 export async function requestSignInCode(email: string): Promise<RequestCodeResponse> {
   return api.post<RequestCodeResponse>('/api/auth/request-code', {
     email: email.trim().toLowerCase(),

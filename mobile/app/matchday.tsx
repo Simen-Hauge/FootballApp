@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useGamemode } from '@/gamemode';
 import { matchesApi, type Match } from '@/api/matches';
 import { predictionsApi, type Prediction } from '@/api/predictions';
+import { PointsInfoButton } from '@/components/PointsInfoModal';
 import { colors, spacing } from '@/theme';
 
 export default function MatchdayScreen() {
@@ -57,8 +58,13 @@ export default function MatchdayScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="caption" color="brand">{meta.shortLabel} · UPCOMING</Text>
-        <Text variant="h1">Matchday</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color="brand">{meta.shortLabel} · UPCOMING</Text>
+            <Text variant="h1">Matchday</Text>
+          </View>
+          <PointsInfoButton scope={gamemode === 'world-cup' ? 'wc' : 'match'} />
+        </View>
         <Text variant="body" color="secondary" style={styles.sub}>
           Tap any match to predict the score{competition === 'PL' ? '' : ' and first goal scorer'}.
         </Text>
@@ -92,6 +98,7 @@ export default function MatchdayScreen() {
 
 const styles = StyleSheet.create({
   header: { marginTop: spacing.sm, marginBottom: spacing.lg, gap: spacing.xs },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   sub: { marginTop: spacing.xs, lineHeight: 21 },
   center: { paddingVertical: spacing.xxl, alignItems: 'center' },
   list: { gap: spacing.md },

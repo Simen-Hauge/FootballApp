@@ -8,6 +8,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useGamemode } from '@/gamemode';
 import { matchesApi, type Match } from '@/api/matches';
 import { predictionsApi, type Prediction } from '@/api/predictions';
+import { PointsInfoButton } from '@/components/PointsInfoModal';
 import { colors, radii, spacing } from '@/theme';
 
 const PL_MATCHWEEKS = Array.from({ length: 38 }, (_, i) => i + 1);
@@ -114,8 +115,13 @@ export default function MatchesTab() {
       </View>
 
       <View style={styles.header}>
-        <Text variant="caption" color="brand">{meta.shortLabel} · FIXTURES</Text>
-        <Text variant="h1">Matches</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color="brand">{meta.shortLabel} · FIXTURES</Text>
+            <Text variant="h1">Matches</Text>
+          </View>
+          <PointsInfoButton scope={competition === 'WC' ? 'wc' : 'match'} />
+        </View>
       </View>
 
       {usesStages ? (
@@ -220,6 +226,7 @@ function formatDayLabel(key: string, todayKey: string): { weekday: string; dayMo
 const styles = StyleSheet.create({
   toggleWrapper: { marginTop: spacing.xs, marginBottom: spacing.lg },
   header: { marginTop: spacing.sm, marginBottom: spacing.lg, gap: spacing.xs },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   selectorScroll: { flexGrow: 0 },
   selector: { gap: spacing.sm, paddingBottom: spacing.lg, paddingHorizontal: 2, alignItems: 'center' },
   pill: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.surface.cardSubtle },
