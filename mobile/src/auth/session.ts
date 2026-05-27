@@ -2,6 +2,8 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { Gamemode } from '@/gamemode/types';
+
 const SESSION_KEY = 'footyguru.session.v1';
 
 export interface Session {
@@ -9,6 +11,13 @@ export interface Session {
   email: string;
   name: string;
   token: string;
+  /**
+   * Gamemodes the server has authorized for this account. Filled by
+   * verify-code and refreshed via GET /api/account/me on app start. Treated
+   * as `['world-cup']` until the server has answered, so a pre-upgrade
+   * cached session never accidentally exposes PL/CL.
+   */
+  enabledGamemodes?: Gamemode[];
 }
 
 const storage = {

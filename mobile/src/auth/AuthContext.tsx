@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { clearSession, getSession, setSession, type Session } from './session';
 import { setAuthToken, setUnauthorizedHandler } from '@/api/client';
+import { fetchMe } from '@/api/players';
 
 interface AuthContextValue {
   session: Session | null;
@@ -17,11 +18,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getSession().then((s) => {
+    let cancelled = false;
+    getSession().then(async (s) => {
+      if (cancelled) return;
       setSessionState(s);
       setAuthToken(s?.token ?? null);
       setLoading(false);
+
+      // Refresh the per-user gamemode allowlist in the background. A cached
+      // session from before this feature shipped will be missing
+      // `enabledGamemodes`; the next /me call backfills it. Also catches the
+      // case where an admin adds someone to FRIENDS_FAMILY_EMAILS while
+      // they're already signed in.
+      if (s?.token) {
+        try {
+          const me = await fetchMe();
+          if (cancelled) return;
+          const refreshed: Session = {
+            ...s,
+            name: me.name,
+            email: me.email,
+            enabledGamemodes: me.enabledGamemodes,
+          };
+          await setSession(refreshed);
+          setSessionState(refreshed);
+        } catch {
+          // 401 already handled by the unauthorized hook below; any other
+          // failure (network, etc.) is non-fatal — keep the cached session.
+        }
+      }
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const signIn = useCallback(async (s: Session) => {

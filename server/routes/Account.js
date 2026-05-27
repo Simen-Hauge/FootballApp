@@ -8,6 +8,7 @@ const { requireAuth } = require('../middleware/auth');
 // because account-level actions (delete, future export) don't take an id.
 router.use(requireAuth);
 
+router.get('/me', playerController.getMe);
 router.delete('/', playerController.deleteAccount);
 
 module.exports = router;

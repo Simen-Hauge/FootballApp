@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Input, Screen, Text } from '@/components/ui';
 import { useAuth } from '@/auth/AuthContext';
-import { useGamemode, GAMEMODE_LIST, GAMEMODES, SERVER_GAMEMODE_ID, type Gamemode } from '@/gamemode';
+import { useGamemode, GAMEMODES, SERVER_GAMEMODE_ID, type Gamemode } from '@/gamemode';
 import { groupsApi, type GroupSummary } from '@/api/groups';
 import { ApiError } from '@/api/client';
 import { colors, radii, spacing } from '@/theme';
@@ -18,7 +18,7 @@ const TOURNAMENT_FOR_MODE: Record<Gamemode, string> = {
 export default function CreateGroupScreen() {
   const router = useRouter();
   const { session } = useAuth();
-  const { gamemode: currentMode } = useGamemode();
+  const { gamemode: currentMode, allowedList } = useGamemode();
 
   const [selectedMode, setSelectedMode] = useState<Gamemode>(currentMode);
   const [groupName, setGroupName] = useState('');
@@ -94,7 +94,7 @@ export default function CreateGroupScreen() {
         <View style={styles.fieldGroup}>
           <Text variant="caption" color="secondary">GAMEMODE</Text>
           <View style={styles.picker}>
-            {GAMEMODE_LIST.map((mode) => {
+            {allowedList.map((mode) => {
               const active = mode.id === selectedMode;
               return (
                 <Pressable

@@ -2,14 +2,17 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
 import { colors, radii, shadows, spacing } from '@/theme';
-import { GAMEMODE_LIST, useGamemode } from '@/gamemode';
+import { useGamemode } from '@/gamemode';
 
 export function GamemodeToggle() {
-  const { gamemode, setGamemode } = useGamemode();
+  const { gamemode, setGamemode, allowedList } = useGamemode();
+
+  // No toggle needed when the user only has one mode (e.g. WC-only public).
+  if (allowedList.length <= 1) return null;
 
   return (
     <View style={styles.wrapper}>
-      {GAMEMODE_LIST.map((mode) => {
+      {allowedList.map((mode) => {
         const active = mode.id === gamemode;
         return (
           <Pressable

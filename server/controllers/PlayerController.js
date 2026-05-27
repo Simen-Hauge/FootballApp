@@ -5,6 +5,31 @@ const Prediction = require('../models/Prediction');
 const GroupStandingPrediction = require('../models/GroupStandingPrediction');
 const EmailCode = require('../models/EmailCode');
 const { signToken } = require('../middleware/auth');
+const { allowedGamemodesFor } = require('../utils/gamemodeFlags');
+
+// GET /api/account/me — caller's own profile, including the per-user gamemode
+// allowlist. Clients call this on app start so a user added to
+// FRIENDS_FAMILY_EMAILS sees the new gamemodes without re-signing in.
+exports.getMe = async (req, res) => {
+  try {
+    const player = await Player.findOne({ email: req.user.email }).select('name email points');
+    if (!player) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+    res.json({
+      player: {
+        id: player._id,
+        email: player.email,
+        name: player.name,
+        points: player.points || 0,
+        enabledGamemodes: allowedGamemodesFor(player.email),
+      },
+    });
+  } catch (err) {
+    console.error('❌ getMe error:', err);
+    res.status(500).json({ error: 'Failed to load profile' });
+  }
+};
 
 // GET all players. Emails removed — they're PII and not needed by clients.
 exports.getAllPlayers = async (req, res) => {

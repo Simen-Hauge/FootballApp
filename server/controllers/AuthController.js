@@ -4,6 +4,7 @@ const Player = require('../models/Player');
 const EmailCode = require('../models/EmailCode');
 const { signToken } = require('../middleware/auth');
 const { sendVerificationEmail } = require('../utils/email');
+const { allowedGamemodesFor } = require('../utils/gamemodeFlags');
 
 const CODE_TTL_MINUTES = 10;
 const CODE_TTL_MS = CODE_TTL_MINUTES * 60 * 1000;
@@ -142,6 +143,7 @@ exports.verifyCode = async (req, res) => {
         email: player.email,
         name: player.name,
         points: player.points || 0,
+        enabledGamemodes: allowedGamemodesFor(player.email),
       },
     });
   } catch (err) {
