@@ -98,14 +98,7 @@ exports.createGroup = async (req, res) => {
 
     res.status(201).json({
       message: 'Group registered',
-      group: {
-        id: newGroup._id,
-        groupName: newGroup.groupName,
-        tournament: newGroup.tournament,
-        gamemode: newGroup.gamemode,
-        owner: newGroup.owner,
-        joinCode: newGroup.joinCode,
-      },
+      group: serializeGroup(newGroup),
     });
   } catch (err) {
     console.error('❌ Error creating group:', err);
