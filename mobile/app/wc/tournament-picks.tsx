@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Screen, Text } from '@/components/ui';
 import { useAuth } from '@/auth/AuthContext';
@@ -301,6 +301,52 @@ export default function TournamentPicksScreen() {
 
 // ---- Golden Boot picker: team list → squad → player ----
 
+// football-data.org reports `position` with a mix of broad ("Defence", "Midfield",
+// "Offence") and specific ("Centre-Back", "Attacking Midfield", "Left Winger") values.
+// Bucket each into one of four groups so players are easy to scan by role.
+const POSITION_GROUPS = [
+  { key: 'GK', title: 'Goalkeepers' },
+  { key: 'DEF', title: 'Defenders' },
+  { key: 'MID', title: 'Midfielders' },
+  { key: 'ATT', title: 'Attackers' },
+] as const;
+
+type PositionGroupKey = (typeof POSITION_GROUPS)[number]['key'];
+
+function positionGroup(position: string | undefined): PositionGroupKey {
+  const p = (position ?? '').toLowerCase();
+  if (p.includes('keeper')) return 'GK';
+  if (p.includes('back') || p.includes('defen') || p.includes('defence')) return 'DEF';
+  if (p.includes('midfield')) return 'MID';
+  if (p.includes('wing') || p.includes('forward') || p.includes('striker') || p.includes('offence') || p.includes('attack'))
+    return 'ATT';
+  // Unknown/blank positions fall through to Midfielders as a neutral default.
+  return 'MID';
+}
+
+// football-data.org uses "Offence"/"Defence" for the broad position labels; show the
+// friendlier player-facing terms instead. Specific labels (e.g. "Left Winger") pass through.
+function prettyPosition(position: string | undefined): string {
+  const p = (position ?? '').trim();
+  if (/^offence$/i.test(p)) return 'Attacker';
+  if (/^defence$/i.test(p)) return 'Defender';
+  if (/^midfield$/i.test(p)) return 'Midfielder';
+  return p;
+}
+
+function groupSquadByPosition(players: SquadPlayer[]): { title: string; data: SquadPlayer[] }[] {
+  const buckets: Record<PositionGroupKey, SquadPlayer[]> = { GK: [], DEF: [], MID: [], ATT: [] };
+  for (const player of players) {
+    buckets[positionGroup(player.position)].push(player);
+  }
+  for (const key of Object.keys(buckets) as PositionGroupKey[]) {
+    buckets[key].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return POSITION_GROUPS
+    .map((g) => ({ title: g.title, data: buckets[g.key] }))
+    .filter((section) => section.data.length > 0);
+}
+
 function GoldenBootPickerModal({
   visible,
   teams,
@@ -352,6 +398,11 @@ function GoldenBootPickerModal({
     [teams],
   );
 
+  const playerSections = useMemo(
+    () => groupSquadByPosition(squad?.squad ?? []),
+    [squad],
+  );
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={modalStyles.root}>
@@ -397,9 +448,15 @@ function GoldenBootPickerModal({
             <Text variant="body" color="danger">Couldn't load squad: {squadError}</Text>
           </View>
         ) : (
-          <FlatList
-            data={squad?.squad ?? []}
+          <SectionList
+            sections={playerSections}
             keyExtractor={(p) => String(p.id)}
+            stickySectionHeadersEnabled
+            renderSectionHeader={({ section }) => (
+              <Text variant="small" color="muted" style={modalStyles.sectionHeader}>
+                {section.title.toUpperCase()}
+              </Text>
+            )}
             ListEmptyComponent={
               <View style={modalStyles.empty}>
                 <Text variant="body" color="muted">No squad listed for this team yet.</Text>
@@ -412,7 +469,7 @@ function GoldenBootPickerModal({
               >
                 <View style={modalStyles.playerLabel}>
                   <Text variant="bodyBold" numberOfLines={1}>{item.name}</Text>
-                  <Text variant="small" color="muted" numberOfLines={1}>{item.position}</Text>
+                  <Text variant="small" color="muted" numberOfLines={1}>{prettyPosition(item.position)}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
               </Pressable>
@@ -571,4 +628,11 @@ const modalStyles = StyleSheet.create({
   rowDisabled: { opacity: 0.45 },
   empty: { padding: spacing.xl, alignItems: 'center' },
   playerLabel: { flex: 1 },
+  sectionHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.surface.background,
+    letterSpacing: 0.5,
+  },
 });
