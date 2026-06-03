@@ -1,6 +1,7 @@
 require('dotenv').config();
 require('./cron/fetchFinishedMatches')
 require('./cron/resolveTournamentResults')
+const { syncAllFixtures } = require('./cron/syncFixtures')
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -55,11 +56,28 @@ app.use((req, res, next) => {
   next();
 });
 
+// Lightweight health check for the host's uptime monitor. Returns 200 as soon
+// as the process is up; reports Mongo connection state without failing the
+// check (a transient DB blip shouldn't make the platform recycle the box and
+// kill the in-process crons). Placed before routes so it's always cheap.
+app.get('/health', (req, res) => {
+  const dbState = mongoose.connection.readyState; // 1 = connected
+  res.status(200).json({ status: 'ok', db: dbState === 1 ? 'connected' : 'disconnected' });
+});
+
 app.use(express.json({ limit: '5mb' }));
 
 // Trust the platform's load balancer (render, etc.) so req.ip reflects the
 // real client address. Required for rate-limit keys to actually work.
 app.set('trust proxy', 1);
+
+// API responses are per-user, always-fresh data — never let a client, proxy, or
+// CDN cache them. Without this, a mobile client can read a stale GET right after
+// a successful PUT (e.g. a cleared tournament pick reappears as still-set).
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -87,6 +105,10 @@ app.use('/api/squads', squadRoutes);
       dbName: 'FootyGuru',
     });
     console.log('✅ Mongo connected');
+    // Populate fixtures immediately on boot so a fresh deploy doesn't wait up
+    // to 6h for the first scheduled run (and so the knockout bracket appears
+    // right after deploy). Non-blocking — server starts regardless.
+    syncAllFixtures().catch((e) => console.error('[fixture-cron] initial sync failed:', e.message));
     app.listen(PORT, '0.0.0.0', () => console.log(`🚀 API listening on ${PORT}`));
   } catch (err) {
     console.error('❌ Startup failed:', err.message);

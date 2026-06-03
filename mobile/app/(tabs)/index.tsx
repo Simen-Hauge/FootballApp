@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Screen, Text } from '@/components/ui';
 import { MatchCard } from '@/components/MatchCard';
 import { GamemodeToggle } from '@/components/GamemodeToggle';
@@ -10,8 +11,12 @@ import { matchesApi, type Match } from '@/api/matches';
 import { predictionsApi, type Prediction } from '@/api/predictions';
 import { groupsApi } from '@/api/groups';
 import { leaderboardApi } from '@/api/leaderboard';
+import { tournamentPredictionsApi } from '@/api/tournamentPredictions';
+import { getWorldCupGroupStandings, wcGroupPredictionsApi } from '@/api/wc';
 import { PointsInfoButton } from '@/components/PointsInfoModal';
 import { colors, radii, spacing } from '@/theme';
+
+type WcChecklist = { goldenBoot: boolean; topThree: boolean; groups: boolean; locked: boolean };
 
 export default function Dashboard() {
   const router = useRouter();
@@ -24,6 +29,7 @@ export default function Dashboard() {
   const [groupCount, setGroupCount] = useState<number | null>(null);
   const [rank, setRank] = useState<number | null>(null);
   const [points, setPoints] = useState<number | null>(null);
+  const [wcChecklist, setWcChecklist] = useState<WcChecklist | null>(null);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -57,6 +63,28 @@ export default function Dashboard() {
           if (!cancelled) {
             setRank(me?.rank ?? null);
             setPoints(me?.points ?? 0);
+          }
+
+          // Pre-tournament checklist (World Cup only): golden boot, top 3, group placements.
+          if (gamemode === 'world-cup') {
+            const [predRes, standings, serverGroups] = await Promise.all([
+              tournamentPredictionsApi.get(competition).catch(() => null),
+              getWorldCupGroupStandings().catch(() => []),
+              wcGroupPredictionsApi.list(session.email).catch(() => []),
+            ]);
+            if (!cancelled) {
+              const pred = predRes?.prediction;
+              const totalGroups = standings.length;
+              const doneGroups = serverGroups.filter((g) => g.rankedTeamIds.length >= 4).length;
+              setWcChecklist({
+                goldenBoot: pred?.goldenBoot?.playerId != null,
+                topThree: !!pred?.topThree?.length && pred.topThree.every((p) => p.teamId != null),
+                groups: totalGroups > 0 && doneGroups >= totalGroups,
+                locked: predRes?.locked ?? false,
+              });
+            }
+          } else if (!cancelled) {
+            setWcChecklist(null);
           }
         } finally {
           if (!cancelled) setLoading(false);
@@ -107,6 +135,10 @@ export default function Dashboard() {
             <Button label="Join with code" variant="secondary" onPress={() => router.push('/group/join')} fullWidth={false} />
           </View>
         </Card>
+      ) : null}
+
+      {!loading && gamemode === 'world-cup' && wcChecklist ? (
+        <WcPicksBanner checklist={wcChecklist} onNavigate={(route) => router.push(route)} />
       ) : null}
 
       <View style={styles.section}>
@@ -172,6 +204,59 @@ function Divider() {
   return <View style={styles.divider} />;
 }
 
+function WcPicksBanner({
+  checklist,
+  onNavigate,
+}: {
+  checklist: WcChecklist;
+  onNavigate: (route: string) => void;
+}) {
+  // Don't nag once predictions are locked (tournament has kicked off) — nothing left to change.
+  if (checklist.locked) return null;
+
+  const items = [
+    { key: 'groups', done: checklist.groups, label: 'Group placements', hint: 'Rank all 12 groups', route: '/wc/group-stage' },
+    { key: 'topThree', done: checklist.topThree, label: 'Top 3 teams', hint: 'Pick the podium', route: '/wc/tournament-picks' },
+    { key: 'goldenBoot', done: checklist.goldenBoot, label: 'Golden Boot', hint: 'Pick the top scorer', route: '/wc/tournament-picks' },
+  ] as const;
+
+  const remaining = items.filter((i) => !i.done).length;
+  if (remaining === 0) return null;
+
+  return (
+    <Card style={styles.alertCard}>
+      <View style={styles.alertHeader}>
+        <Ionicons name="alert-circle" size={20} color={colors.state.warning} />
+        <Text variant="bodyBold" style={{ flex: 1 }}>Finish your pre-tournament picks</Text>
+      </View>
+      <Text variant="small" color="muted">
+        {remaining} of {items.length} selections still need a pick before the tournament starts.
+      </Text>
+      <View style={styles.alertList}>
+        {items.map((item) => (
+          <Pressable
+            key={item.key}
+            onPress={() => onNavigate(item.route)}
+            disabled={item.done}
+            style={({ pressed }) => [styles.alertRow, pressed && !item.done && styles.alertRowPressed]}
+          >
+            <Ionicons
+              name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
+              size={20}
+              color={item.done ? colors.state.success : colors.state.warning}
+            />
+            <View style={{ flex: 1 }}>
+              <Text variant="body" color={item.done ? 'muted' : 'primary'}>{item.label}</Text>
+              {!item.done ? <Text variant="small" color="muted">{item.hint}</Text> : null}
+            </View>
+            {!item.done ? <Ionicons name="chevron-forward" size={16} color={colors.text.muted} /> : null}
+          </Pressable>
+        ))}
+      </View>
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
   toggleWrapper: { marginTop: spacing.xs, marginBottom: spacing.lg },
   header: { marginBottom: spacing.lg, gap: spacing.xs },
@@ -189,4 +274,23 @@ const styles = StyleSheet.create({
   fullCard: { gap: spacing.xs },
   welcomeCard: { marginTop: spacing.lg, gap: spacing.sm },
   welcomeActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, flexWrap: 'wrap' },
+  alertCard: {
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+    backgroundColor: colors.state.dangerBg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.brand.primaryLight,
+  },
+  alertHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  alertList: { marginTop: spacing.xs, gap: spacing.xs },
+  alertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface.card,
+  },
+  alertRowPressed: { backgroundColor: colors.surface.cardSubtle },
 });

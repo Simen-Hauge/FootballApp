@@ -12,7 +12,14 @@
       "Bash(npm test *)",
       "Bash(node --test)",
       "Bash(git check-ignore *)",
-      "Bash(grep -E \"^\\(mobile/eas\\\\.json|mobile/app\\\\.json|server/\\\\.env\\)$\")"
+      "Bash(grep -E \"^\\(mobile/eas\\\\.json|mobile/app\\\\.json|server/\\\\.env\\)$\")",
+      "Bash(xargs grep -l \"position\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\simen.hauge\\\\Documents\\\\privat\\\\prosjekter\\\\FootballApp\" -Recurse -Depth 2)",
+      "Bash(Select-Object FullName)",
+      "Bash(node --check Server.js)",
+      "Bash(node --check cron/syncFixtures.js)",
+      "Bash(rg -n \"competition\" src/gamemode* -g '!*.test.*')",
+      "Bash(rg -n \"competition|'WC'|world-cup\" src/gamemode/index.ts src/gamemode.ts src/gamemode/*.ts)"
     ]
   }
 }

@@ -41,6 +41,11 @@ export async function request<T = unknown>(path: string, options: RequestOptions
   const url = buildUrl(path, query);
 
   const res = await fetch(url, {
+    // Never serve API responses from the platform HTTP cache. Without this,
+    // iOS (NSURLSession) can return a stale GET body right after a PUT — e.g.
+    // clearing a tournament pick saves fine, but the next fetch still shows the
+    // old pick. 'no-store' forces every request to hit the network.
+    cache: 'no-store',
     ...rest,
     headers: {
       Accept: 'application/json',
