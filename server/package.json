@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test",
     "start": "node server.js",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "recalc:points": "node scripts/recalculateMatchPoints.js"
   },
   "keywords": [],
   "author": "",

@@ -1,5 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const controller = require('../controllers/AuthController');
 
 const router = express.Router();
@@ -10,7 +11,7 @@ const router = express.Router();
 // surface. Bodies are already parsed by express.json upstream.
 function keyByEmailOrIp(req) {
   const email = String(req.body?.email || '').trim().toLowerCase();
-  return email || req.ip;
+  return email || ipKeyGenerator(req.ip);
 }
 
 // Tight limits. These are unauthenticated surfaces; tighten now, loosen later
