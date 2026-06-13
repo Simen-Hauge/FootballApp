@@ -27,7 +27,7 @@ export interface PointsConfig {
 // Fallback baked into the bundle so the popup still renders if the network
 // call fails — kept in sync with server/utils/pointsConfig.js manually.
 export const DEFAULT_POINTS_CONFIG: PointsConfig = {
-  match: { exactScore: 3, correctOutcome: 2, correctGoalDifference: 1, oneTeamScoreCorrect: 1, miss: 0 },
+  match: { exactScore: 5, correctOutcome: 2, correctGoalDifference: 1, oneTeamScoreCorrect: 1, miss: 0 },
   firstGoalScorer: { exact: 5, miss: 0 },
   groupStanding: { exactPosition: 3, offByOne: 2, offByTwo: 1, offByThreeOrMore: 0 },
   goldenBoot: { exact: 15, miss: 0 },

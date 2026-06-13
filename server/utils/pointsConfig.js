@@ -4,7 +4,7 @@
 
 const POINTS_CONFIG = {
   match: {
-    exactScore: 3,
+    exactScore: 5,
     correctOutcome: 2,
     correctGoalDifference: 1,
     oneTeamScoreCorrect: 1,

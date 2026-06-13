@@ -61,8 +61,8 @@ export function PointsInfoModal({ visible, onClose, scope = 'all' }: PointsInfoM
                 <Row label="One team's score correct" value={`+${config.match.oneTeamScoreCorrect}`} />
                 <Row label="Otherwise" value={`+${config.match.miss}`} />
                 <Note>
-                  We award the single highest tier that applies — you don't stack
-                  goal-difference on top of correct-outcome.
+                  Exact score is the premium hit. We award only the single highest
+                  tier for each match prediction.
                 </Note>
               </Section>
             )}
@@ -71,7 +71,7 @@ export function PointsInfoModal({ visible, onClose, scope = 'all' }: PointsInfoM
               <Section title="First goal scorer">
                 <Row label="Correct first scorer" value={`+${config.firstGoalScorer.exact}`} />
                 <Row label="Wrong (or unset)" value={`+${config.firstGoalScorer.miss}`} />
-                <Note>Bonus is added on top of any match points.</Note>
+                <Note>This bonus is added on top of your match prediction points.</Note>
               </Section>
             )}
 
