@@ -33,16 +33,38 @@ exports.getGroupsByPlayerEmail = async (req, res) => {
 // GET single group. Only members see the joinCode; non-members get a
 // metadata-only view (still useful for "preview a group before joining"
 // flows). No side-effecting backfill — codes are generated at create time.
+// Points are aggregated per group/gamemode, not global.
 exports.getGroupById = async (req, res) => {
   try {
     const { id } = req.params;
-    const group = await Group.findById(id).populate('players', 'name email points');
+    const group = await Group.findById(id).populate('players', 'name email _id');
 
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
     const member = group.players.some((p) => p.email === req.user.email);
+    const gamemode = String(group.gamemode);
+    
+    // Aggregate points per player from their predictions matching this gamemode
+    const Prediction = require('../models/Prediction');
+    const pointsByEmail = {};
+    const predictions = await Prediction.find({
+      email: { $in: group.players.map((p) => p.email) },
+      gamemode,
+      pointsAwarded: { $ne: null },
+    });
+    
+    for (const pred of predictions) {
+      pointsByEmail[pred.email] = (pointsByEmail[pred.email] || 0) + pred.pointsAwarded;
+    }
+
+    const membersWithPoints = group.players.map((p) => ({
+      _id: p._id,
+      name: p.name,
+      email: p.email,
+      points: pointsByEmail[p.email] || 0,
+    }));
 
     res.json({
       id: group._id,
@@ -51,7 +73,7 @@ exports.getGroupById = async (req, res) => {
       owner: group.owner,
       gamemode: group.gamemode,
       joinCode: member ? group.joinCode : undefined,
-      members: member ? group.players : group.players.map((p) => ({ _id: p._id, name: p.name, points: p.points })),
+      members: member ? membersWithPoints : membersWithPoints.map((p) => ({ _id: p._id, name: p.name, points: p.points })),
     });
   } catch (err) {
     console.error('❌ Error fetching group by ID:', err);

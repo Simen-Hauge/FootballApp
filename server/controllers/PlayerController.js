@@ -104,11 +104,38 @@ exports.getLeaderboard = async (req, res) => {
 
 // GET players by groupId. Authenticated callers only; emails still returned
 // because group members can see each other's contact-style identity in-app.
+// Points are aggregated per group/gamemode, not global.
 exports.getPlayersByGroup = async (req, res) => {
   try {
     const groupId = req.params.id;
-    const players = await Player.find({ groups: groupId }).select('name email points');
-    res.json(players);
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    const players = await Player.find({ groups: groupId }).select('name email _id');
+    const gamemode = String(group.gamemode);
+    
+    // Aggregate points per player from their predictions matching this gamemode
+    const pointsByEmail = {};
+    const predictions = await Prediction.find({
+      email: { $in: players.map((p) => p.email) },
+      gamemode,
+      pointsAwarded: { $ne: null },
+    });
+    
+    for (const pred of predictions) {
+      pointsByEmail[pred.email] = (pointsByEmail[pred.email] || 0) + pred.pointsAwarded;
+    }
+    
+    const result = players.map((p) => ({
+      _id: p._id,
+      name: p.name,
+      email: p.email,
+      points: pointsByEmail[p.email] || 0,
+    }));
+    
+    res.json(result);
   } catch (err) {
     console.error('❌ getPlayersByGroup error:', err);
     res.status(500).json({ error: 'Failed to get players by group' });
