@@ -93,6 +93,14 @@ async function processCompetition(competition) {
   }
 }
 
+async function runFinishedMatchSync() {
+  console.log(`🔁 Finished-match sync starting for ${COMPETITIONS_TO_TRACK.join(', ')}`);
+  for (const competition of COMPETITIONS_TO_TRACK) {
+    await processCompetition(competition);
+  }
+  console.log('✅ Finished-match sync complete');
+}
+
 // Returns the first goal's scorer for a given football-data.org match id, or
 // null if the match details / goals can't be retrieved. We treat the first
 // entry of `goals[]` as authoritative — football-data.org returns goals in
@@ -121,10 +129,6 @@ async function resolveFirstScorer(matchId) {
 }
 
 // Every 10 minutes
-cron.schedule('*/10 * * * *', async () => {
-  console.log(`🔁 Finished-match cron starting for ${COMPETITIONS_TO_TRACK.join(', ')}`);
-  for (const competition of COMPETITIONS_TO_TRACK) {
-    await processCompetition(competition);
-  }
-  console.log('✅ Finished-match cron complete');
-});
+cron.schedule('*/10 * * * *', runFinishedMatchSync);
+
+module.exports = { runFinishedMatchSync };

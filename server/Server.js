@@ -1,5 +1,5 @@
 require('dotenv').config();
-require('./cron/fetchFinishedMatches')
+const { runFinishedMatchSync } = require('./cron/fetchFinishedMatches');
 require('./cron/resolveTournamentResults')
 const { syncAllFixtures } = require('./cron/syncFixtures')
 
@@ -105,6 +105,11 @@ app.use('/api/squads', squadRoutes);
       dbName: 'FootyGuru',
     });
     console.log('✅ Mongo connected');
+    // Run a one-shot finished match sync on boot so points are awarded even
+    // if the process restarted between cron intervals.
+    runFinishedMatchSync().catch((e) =>
+      console.error('[finished-cron] initial sync failed:', e.message),
+    );
     // Populate fixtures immediately on boot so a fresh deploy doesn't wait up
     // to 6h for the first scheduled run (and so the knockout bracket appears
     // right after deploy). Non-blocking — server starts regardless.
