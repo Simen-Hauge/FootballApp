@@ -49,7 +49,12 @@ function matchPointLogic(predictedHomeScore, predictedAwayScore, actualHomeScore
 function firstScorerPointLogic(predictedScorerId, actualScorerId) {
   if (predictedScorerId === null || predictedScorerId === undefined) return P.firstGoalScorer.miss;
   if (actualScorerId === null || actualScorerId === undefined) return P.firstGoalScorer.miss;
-  return predictedScorerId === actualScorerId ? P.firstGoalScorer.exact : P.firstGoalScorer.miss;
+
+  const predicted = Number(predictedScorerId);
+  const actual = Number(actualScorerId);
+  if (!Number.isFinite(predicted) || !Number.isFinite(actual)) return P.firstGoalScorer.miss;
+
+  return predicted === actual ? P.firstGoalScorer.exact : P.firstGoalScorer.miss;
 }
 
 // Awards goldenBoot.exact pts if the predicted player id matches the actual

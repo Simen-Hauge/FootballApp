@@ -11,7 +11,7 @@ const FINAL_STATUSES = new Set(['FINISHED', 'IN_PLAY', 'PAUSED']);
 async function processCompetition(competition) {
   let data;
   try {
-    data = await getMatches(competition);
+    data = await getMatches(competition, {}, { unfoldGoals: true });
   } catch (err) {
     if (isRateLimit(err)) {
       console.warn(`[finished-cron] rate limit hit for ${competition}, skipping`);
@@ -37,7 +37,7 @@ async function processCompetition(competition) {
       `⚽ [${competition}] ${doc.homeTeam} ${scoreHome}-${scoreAway} ${doc.awayTeam} · ${apiMatch.status}`,
     );
 
-    await Match.findOneAndUpdate(
+    const storedMatch = await Match.findOneAndUpdate(
       { matchId: doc.matchId },
       { $set: doc },
       { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -49,48 +49,99 @@ async function processCompetition(competition) {
     const unscored = predictions.filter(
       (p) => p.pointsAwarded === null || p.pointsAwarded === undefined,
     );
-    if (unscored.length === 0) continue;
+    const pendingScorer = predictions.filter((p) => p.scorerPending === true);
+    if (unscored.length === 0 && pendingScorer.length === 0) continue;
 
     // Only hit the per-match endpoint when at least one player predicted a scorer.
     // We persist it on the Match doc so a re-run doesn't double-fetch.
-    const needsScorer = unscored.some((p) => p.firstGoalScorer?.playerId);
-    let firstScorer = null;
-    let scorerLookupFailed = false;
-    if (needsScorer) {
+    const needsScorer =
+      unscored.some((p) => p.firstGoalScorer?.playerId) || pendingScorer.length > 0;
+    let firstScorer = storedMatch?.firstGoalScorer?.playerId
+      ? storedMatch.firstGoalScorer
+      : null;
+    if (!firstScorer) {
+      firstScorer = resolveFirstScorerFromGoals(apiMatch.goals);
+      if (firstScorer) {
+        await Match.findOneAndUpdate(
+          { matchId: apiMatch.id },
+          { $set: { firstGoalScorer: firstScorer } },
+        );
+      }
+    }
+    if (needsScorer && !firstScorer) {
       firstScorer = await resolveFirstScorer(apiMatch.id);
       if (firstScorer) {
         await Match.findOneAndUpdate(
           { matchId: apiMatch.id },
           { $set: { firstGoalScorer: firstScorer } },
         );
-      } else {
-        scorerLookupFailed = true;
       }
     }
 
     for (const pred of unscored) {
-      // Defer this prediction if a scorer bonus is owed but we couldn't resolve
-      // it yet — the next cron run will retry instead of locking in match-only
-      // points forever.
-      if (scorerLookupFailed && pred.firstGoalScorer?.playerId) continue;
-
       const matchPoints = matchPointLogic(pred.score.home, pred.score.away, scoreHome, scoreAway);
-      const scorerPoints = firstScorerPointLogic(
-        pred.firstGoalScorer?.playerId ?? null,
-        firstScorer?.playerId ?? null,
-      );
+      const hasScorerPrediction = pred.firstGoalScorer?.playerId != null;
+      const scorerResolved = !hasScorerPrediction || !!firstScorer?.playerId;
+      const scorerPoints = scorerResolved
+        ? firstScorerPointLogic(
+            pred.firstGoalScorer?.playerId ?? null,
+            firstScorer?.playerId ?? null,
+          )
+        : 0;
       const points = matchPoints + scorerPoints;
 
       await incrementPlayerScore(pred.email, points);
       pred.pointsAwarded = points;
+      pred.scorerPending = hasScorerPrediction && !scorerResolved;
       await pred.save();
       console.log(
         `🏅 ${pred.email}: ${pred.score.home}-${pred.score.away} vs ${scoreHome}-${scoreAway}` +
           ` → ${matchPoints}${scorerPoints ? ` + ${scorerPoints} scorer` : ''} = ${points} pts` +
+          `${pred.scorerPending ? ' (scorer pending)' : ''}` +
           ` (match ${apiMatch.id})`,
       );
     }
+
+    // Backfill scorer bonus for predictions previously scored with scorerPending.
+    if (firstScorer?.playerId && pendingScorer.length > 0) {
+      for (const pred of pendingScorer) {
+        const scorerPoints = firstScorerPointLogic(
+          pred.firstGoalScorer?.playerId ?? null,
+          firstScorer.playerId,
+        );
+
+        if (scorerPoints > 0) {
+          await incrementPlayerScore(pred.email, scorerPoints);
+          pred.pointsAwarded = (pred.pointsAwarded ?? 0) + scorerPoints;
+        }
+
+        pred.scorerPending = false;
+        await pred.save();
+        console.log(
+          `🎯 ${pred.email}: scorer backfill ${scorerPoints} pts (match ${apiMatch.id})`,
+        );
+      }
+    }
   }
+}
+
+function resolveFirstScorerFromGoals(goalsInput) {
+  const goals = Array.isArray(goalsInput) ? goalsInput : [];
+  if (goals.length === 0) return null;
+
+  const orderedGoals = goals
+    .filter((g) => Number.isFinite(Number(g?.minute)))
+    .slice()
+    .sort((a, b) => Number(a.minute) - Number(b.minute));
+  const first = orderedGoals[0] || goals[0];
+  const scorer = first?.scorer;
+  if (!scorer?.id) return null;
+
+  return {
+    playerId: scorer.id,
+    playerName: scorer.name ?? null,
+    minute: Number.isFinite(Number(first.minute)) ? Number(first.minute) : null,
+  };
 }
 
 async function runFinishedMatchSync() {
@@ -108,16 +159,7 @@ async function runFinishedMatchSync() {
 async function resolveFirstScorer(matchId) {
   try {
     const data = await getMatch(matchId);
-    const goals = Array.isArray(data?.goals) ? data.goals : [];
-    if (goals.length === 0) return null;
-    const first = goals[0];
-    const scorer = first?.scorer;
-    if (!scorer?.id) return null;
-    return {
-      playerId: scorer.id,
-      playerName: scorer.name ?? null,
-      minute: typeof first.minute === 'number' ? first.minute : null,
-    };
+    return resolveFirstScorerFromGoals(data?.goals);
   } catch (err) {
     if (isRateLimit(err)) {
       console.warn(`[finished-cron] rate limit on /matches/${matchId}, deferring scorer bonus`);

@@ -1,0 +1,11 @@
+{
+  "537327": {
+    "playerId": 12345,
+    "playerName": "Example Player",
+    "minute": 18
+  },
+  "537391": {
+    "playerId": 67890,
+    "playerName": "Another Player"
+  }
+}

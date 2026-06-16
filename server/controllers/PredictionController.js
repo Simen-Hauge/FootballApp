@@ -37,9 +37,10 @@ exports.makePrediction = async (req, res) => {
 
     const update = { score };
     if (firstGoalScorer !== undefined) {
+      const parsedPlayerId = Number(firstGoalScorer?.playerId);
       update.firstGoalScorer = firstGoalScorer
         ? {
-            playerId: firstGoalScorer.playerId ?? null,
+            playerId: Number.isFinite(parsedPlayerId) ? parsedPlayerId : null,
             playerName: firstGoalScorer.playerName ?? null,
           }
         : { playerId: null, playerName: null };

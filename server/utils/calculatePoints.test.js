@@ -104,9 +104,8 @@ describe('firstScorerPointLogic — first goal scorer bonus (all gamemodes)', ()
     assert.equal(firstScorerPointLogic(null, null), P.firstGoalScorer.miss);
   });
 
-  test('strict equality — string "123" does not match number 123', () => {
-    // The cron stores numeric ids; a string here would indicate a bug upstream.
-    assert.equal(firstScorerPointLogic('123', 123), P.firstGoalScorer.miss);
+  test('numeric string and number ids are treated as the same player', () => {
+    assert.equal(firstScorerPointLogic('123', 123), P.firstGoalScorer.exact);
   });
 });
 

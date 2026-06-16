@@ -13,6 +13,9 @@ const PredictionSchema = new mongoose.Schema({
     playerName: { type: String, default: null },
   },
   pointsAwarded: { type: Number, default: null },
+  // True when match points were awarded but scorer bonus is deferred because
+  // first-goal scorer data was unavailable at scoring time.
+  scorerPending: { type: Boolean, default: false },
   gamemode: { type: String }, // e.g., "classic" or "fantasy"
 
   // optional: storing whole table per season

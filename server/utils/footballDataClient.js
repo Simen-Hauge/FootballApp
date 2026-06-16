@@ -31,9 +31,9 @@ function getClient() {
   });
 }
 
-async function safeGet(path, params) {
+async function safeGet(path, params, headers = {}) {
   try {
-    const res = await getClient().get(path, { params });
+    const res = await getClient().get(path, { params, headers });
     return res.data;
   } catch (err) {
     if (err.response) {
@@ -54,7 +54,12 @@ module.exports = {
   COMPETITIONS_TO_TRACK,
   FootballDataError,
   isRateLimit,
-  getMatches: (competition, params = {}) => safeGet(`/competitions/${competition}/matches`, params),
+  getMatches: (competition, params = {}, options = {}) =>
+    safeGet(
+      `/competitions/${competition}/matches`,
+      params,
+      options.unfoldGoals ? { 'X-Unfold-Goals': 'true' } : {},
+    ),
   getMatch: (matchId) => safeGet(`/matches/${matchId}`),
   getTeams: (competition) => safeGet(`/competitions/${competition}/teams`),
   getStandings: (competition, params = {}) => safeGet(`/competitions/${competition}/standings`, params),
