@@ -8,7 +8,8 @@
     "start": "node server.js",
     "build": "react-scripts build",
     "recalc:points": "node scripts/recalculateMatchPoints.js",
-    "check:match-events": "node scripts/checkMatchEventCoverage.js"
+    "check:match-events": "node scripts/checkMatchEventCoverage.js",
+    "sync:matches": "node scripts/runMatchSync.js"
   },
   "keywords": [],
   "author": "",
