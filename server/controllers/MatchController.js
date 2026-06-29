@@ -19,6 +19,23 @@ async function upsertNewMatches(apiMatches, competition) {
   return newDocs;
 }
 
+async function upsertMatches(apiMatches, competition) {
+  if (!apiMatches?.length) return [];
+
+  await Match.bulkWrite(
+    apiMatches.map((m) => ({
+      updateOne: {
+        filter: { matchId: m.id },
+        update: { $set: mapApiMatchToDoc(m, competition) },
+        upsert: true,
+      },
+    })),
+    { ordered: false },
+  );
+
+  return Match.find({ matchId: { $in: apiMatches.map((m) => m.id) } });
+}
+
 function handleApiError(err, res) {
   if (isRateLimit(err)) {
     return res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
@@ -79,16 +96,22 @@ exports.getMatchesByStage = async (req, res) => {
   if (!stage) return res.status(400).json({ error: 'Missing stage' });
 
   try {
-    const cached = await Match.find({ competition, stage });
-    if (cached.length > 0) {
-      console.log(`✅ Serving ${cached.length} ${competition} matches from cache (stage ${stage})`);
-      return res.json(cached);
-    }
+    const cached = await Match.find({ competition, stage }).sort({ kickoffDateTime: 1 });
 
     const data = await getMatches(competition, { stage });
-    const newMatches = await upsertNewMatches(data.matches, competition);
-    res.json([...cached, ...newMatches]);
+    await upsertMatches(data.matches, competition);
+
+    const fresh = await Match.find({ competition, stage }).sort({ kickoffDateTime: 1 });
+    console.log(`✅ Serving ${fresh.length} ${competition} matches after refresh (stage ${stage})`);
+    res.json(fresh);
   } catch (err) {
+    const cached = await Match.find({ competition, stage }).sort({ kickoffDateTime: 1 });
+    if (cached.length > 0) {
+      console.warn(
+        `⚠️ getMatchesByStage(${competition}, ${stage}) fell back to cache: ${err.message}`,
+      );
+      return res.json(cached);
+    }
     return handleApiError(err, res);
   }
 };
@@ -105,18 +128,8 @@ async function refreshCompetitionCache(competition) {
     );
     if (apiMatches.length === 0) return;
 
-    const ids = apiMatches.map((m) => m.id);
-    const existing = await Match.find({ matchId: { $in: ids } }, { matchId: 1 }).lean();
-    const existingIds = new Set(existing.map((m) => m.matchId));
-
-    const newDocs = apiMatches
-      .filter((m) => !existingIds.has(m.id))
-      .map((m) => mapApiMatchToDoc(m, competition));
-
-    if (newDocs.length > 0) {
-      await Match.insertMany(newDocs, { ordered: false });
-      console.log(`💾 Cache refresh: saved ${newDocs.length} new ${competition} matches`);
-    }
+    await upsertMatches(apiMatches, competition);
+    console.log(`💾 Cache refresh: upserted ${apiMatches.length} ${competition} matches`);
   } catch (err) {
     console.error(`⚠️ refreshCompetitionCache(${competition}) failed:`, err.message);
   }

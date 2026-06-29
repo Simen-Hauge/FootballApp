@@ -15,6 +15,7 @@ const PL_MATCHWEEKS = Array.from({ length: 38 }, (_, i) => i + 1);
 
 const WC_STAGES: Array<{ value: string; label: string }> = [
   { value: 'GROUP_STAGE', label: 'Group stage' },
+  { value: 'LAST_32', label: 'Round of 32' },
   { value: 'LAST_16', label: 'Round of 16' },
   { value: 'QUARTER_FINALS', label: 'Quarter-finals' },
   { value: 'SEMI_FINALS', label: 'Semi-finals' },
