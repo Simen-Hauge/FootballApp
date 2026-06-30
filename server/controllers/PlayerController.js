@@ -6,6 +6,7 @@ const GroupStandingPrediction = require('../models/GroupStandingPrediction');
 const EmailCode = require('../models/EmailCode');
 const { signToken } = require('../middleware/auth');
 const { allowedGamemodesFor } = require('../utils/gamemodeFlags');
+const { getGamemodePointsByEmail } = require('../utils/scoreAggregation');
 
 // GET /api/account/me — caller's own profile, including the per-user gamemode
 // allowlist. Clients call this on app start so a user added to
@@ -49,8 +50,8 @@ exports.getAllPlayers = async (req, res) => {
 };
 
 // GET leaderboard. Without `gamemode` query → global (sums Player.points).
-// With `gamemode` query (e.g. ?gamemode=2 for PL, ?gamemode=3 for WC) → aggregates
-// pointsAwarded across Prediction docs filtered by that gamemode.
+// With `gamemode` query → aggregates every scoring source that belongs to that
+// mode (match picks, WC group standings, tournament-wide picks).
 exports.getLeaderboard = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
@@ -71,28 +72,23 @@ exports.getLeaderboard = async (req, res) => {
       );
     }
 
-    const Prediction = require('../models/Prediction');
-    const rows = await Prediction.aggregate([
-      { $match: { gamemode, pointsAwarded: { $ne: null } } },
-      { $group: { _id: '$email', points: { $sum: '$pointsAwarded' } } },
-      { $sort: { points: -1, _id: 1 } },
-      { $limit: limit },
-      {
-        $lookup: {
-          from: 'players',
-          localField: '_id',
-          foreignField: 'email',
-          as: 'player',
-        },
-      },
-      { $unwind: { path: '$player', preserveNullAndEmptyArrays: true } },
-    ]);
+    const pointsByEmail = await getGamemodePointsByEmail({ gamemode });
+    const emails = [...pointsByEmail.keys()];
+    const players = emails.length > 0
+      ? await Player.find({ email: { $in: emails } }).select('name email _id')
+      : [];
+    const playersByEmail = new Map(players.map((player) => [player.email, player]));
+
+    const rows = emails
+      .map((email) => ({ email, points: pointsByEmail.get(email) || 0 }))
+      .sort((a, b) => (b.points - a.points) || a.email.localeCompare(b.email))
+      .slice(0, limit);
 
     res.json(
       rows.map((r, i) => ({
         rank: i + 1,
-        id: r.player?._id ?? r._id,
-        name: r.player?.name ?? 'Unknown',
+        id: playersByEmail.get(r.email)?._id ?? r.email,
+        name: playersByEmail.get(r.email)?.name ?? 'Unknown',
         points: r.points,
       })),
     );
@@ -115,24 +111,16 @@ exports.getPlayersByGroup = async (req, res) => {
 
     const players = await Player.find({ groups: groupId }).select('name email _id');
     const gamemode = String(group.gamemode);
-    
-    // Aggregate points per player from their predictions matching this gamemode
-    const pointsByEmail = {};
-    const predictions = await Prediction.find({
-      email: { $in: players.map((p) => p.email) },
+    const pointsByEmail = await getGamemodePointsByEmail({
       gamemode,
-      pointsAwarded: { $ne: null },
+      emails: players.map((p) => p.email),
     });
-    
-    for (const pred of predictions) {
-      pointsByEmail[pred.email] = (pointsByEmail[pred.email] || 0) + pred.pointsAwarded;
-    }
-    
+
     const result = players.map((p) => ({
       _id: p._id,
       name: p.name,
       email: p.email,
-      points: pointsByEmail[p.email] || 0,
+      points: pointsByEmail.get(p.email) || 0,
     }));
     
     res.json(result);

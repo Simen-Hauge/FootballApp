@@ -1,8 +1,14 @@
 const cron = require('node-cron');
 const Match = require('../models/Match');
+const GroupStandingPrediction = require('../models/GroupStandingPrediction');
 const TournamentResult = require('../models/TournamentResult');
 const TournamentPrediction = require('../models/TournamentPrediction');
 const { goldenBootPointLogic, topThreePointLogic } = require('../utils/calculatePoints');
+const {
+  normalizeGroupCode,
+  extractGroupStandings,
+  calculateGroupStandingPoints,
+} = require('../utils/groupStandingScoring');
 const { incrementPlayerScore } = require('../controllers/PlayerController');
 const {
   getStandings,
@@ -20,8 +26,66 @@ const TOURNAMENT_COMPETITIONS = ['WC', 'CL'];
 async function isTournamentComplete(competition) {
   const total = await Match.countDocuments({ competition });
   if (total === 0) return false;
-  const finished = await Match.countDocuments({ competition, status: 'FINISHED' });
+  const finished = await Match.countDocuments({ competition, status: 'finished' });
   return finished === total;
+}
+
+async function isGroupStageComplete(competition) {
+  const total = await Match.countDocuments({ competition, group: { $ne: null } });
+  if (total === 0) return false;
+
+  const finished = await Match.countDocuments({
+    competition,
+    group: { $ne: null },
+    status: 'finished',
+  });
+  return finished === total;
+}
+
+async function payoutWorldCupGroupStandings() {
+  const predictions = await GroupStandingPrediction.find({
+    competition: 'WC',
+    pointsAwarded: null,
+  });
+  if (predictions.length === 0) return 0;
+
+  const complete = await isGroupStageComplete('WC');
+  if (!complete) return 0;
+
+  let standingsData;
+  try {
+    standingsData = await getStandings('WC');
+  } catch (err) {
+    if (isRateLimit(err)) {
+      console.warn('[tournament-cron] rate limit on WC group standings, retrying next cycle');
+    } else {
+      console.error('[tournament-cron] failed to fetch WC group standings:', err.message);
+    }
+    return 0;
+  }
+
+  const actualGroups = extractGroupStandings(standingsData?.standings);
+  if (actualGroups.size === 0) return 0;
+
+  let scored = 0;
+  for (const pred of predictions) {
+    const actualOrder = actualGroups.get(normalizeGroupCode(pred.groupCode));
+    if (!actualOrder) continue;
+
+    const points = calculateGroupStandingPoints(pred.rankedTeamIds, actualOrder);
+    if (points > 0) {
+      await incrementPlayerScore(pred.email, points);
+    }
+
+    pred.pointsAwarded = points;
+    await pred.save();
+    scored += 1;
+    console.log(
+      `🏁 ${pred.email}: group ${pred.groupCode} ${points} pts (WC group standings)`,
+    );
+  }
+
+  return scored;
 }
 
 // Attempts to pull final top scorer + top-3 standings from football-data.org.
@@ -119,6 +183,10 @@ async function payoutPoints(result) {
 }
 
 async function processCompetition(competition) {
+  if (competition === 'WC') {
+    await payoutWorldCupGroupStandings();
+  }
+
   const season = String(new Date().getFullYear());
   let result = await TournamentResult.findOne({ competition, season });
 
@@ -171,4 +239,9 @@ cron.schedule('*/30 * * * *', async () => {
   console.log('✅ Tournament-resolve cron complete');
 });
 
-module.exports = { processCompetition };
+module.exports = {
+  processCompetition,
+  normalizeGroupCode,
+  extractGroupStandings,
+  calculateGroupStandingPoints,
+};
