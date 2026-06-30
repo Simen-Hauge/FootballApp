@@ -74,11 +74,38 @@ export interface ServerGroupPrediction {
   competition: string;
   groupCode: string;
   rankedTeamIds: number[];
+  pointsAwarded?: number | null;
+}
+
+export interface GroupPredictionsResponse {
+  predictions: ServerGroupPrediction[];
+  locked: boolean;
+}
+
+function normalizeGroupPredictionsResponse(data: unknown): GroupPredictionsResponse {
+  if (Array.isArray(data)) {
+    return { predictions: data as ServerGroupPrediction[], locked: false }; // legacy server shape
+  }
+
+  if (data && typeof data === 'object') {
+    const maybe = data as Partial<GroupPredictionsResponse>;
+    return {
+      predictions: Array.isArray(maybe.predictions) ? maybe.predictions : [],
+      locked: Boolean(maybe.locked),
+    };
+  }
+
+  return { predictions: [], locked: false };
 }
 
 export const wcGroupPredictionsApi = {
-  list: (email: string, competition = 'WC') =>
-    api.get<ServerGroupPrediction[]>('/api/wc/group-predictions', { email, competition }),
+  list: async (email: string, competition = 'WC') =>
+    normalizeGroupPredictionsResponse(
+      await api.get<GroupPredictionsResponse | ServerGroupPrediction[]>('/api/wc/group-predictions', {
+        email,
+        competition,
+      }),
+    ),
 
   bulkSave: (email: string, predictions: Record<string, number[]>, competition = 'WC') =>
     api.put<{ message: string; count: number }>('/api/wc/group-predictions/bulk', {

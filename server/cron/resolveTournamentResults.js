@@ -241,6 +241,7 @@ cron.schedule('*/30 * * * *', async () => {
 
 module.exports = {
   processCompetition,
+  payoutWorldCupGroupStandings,
   normalizeGroupCode,
   extractGroupStandings,
   calculateGroupStandingPoints,

@@ -8,6 +8,7 @@
     "start": "node server.js",
     "build": "react-scripts build",
     "recalc:points": "node scripts/recalculateMatchPoints.js",
+    "score:wc-groups": "node scripts/scoreWorldCupGroupStandings.js",
     "check:match-events": "node scripts/checkMatchEventCoverage.js",
     "sync:matches": "node scripts/runMatchSync.js"
   },

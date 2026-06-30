@@ -67,20 +67,20 @@ export default function Dashboard() {
 
           // Pre-tournament checklist (World Cup only): golden boot, top 3, group placements.
           if (gamemode === 'world-cup') {
-            const [predRes, standings, serverGroups] = await Promise.all([
+            const [predRes, standings, groupPredRes] = await Promise.all([
               tournamentPredictionsApi.get(competition).catch(() => null),
               getWorldCupGroupStandings().catch(() => []),
-              wcGroupPredictionsApi.list(session.email).catch(() => []),
+              wcGroupPredictionsApi.list(session.email).catch(() => null),
             ]);
             if (!cancelled) {
               const pred = predRes?.prediction;
               const totalGroups = standings.length;
-              const doneGroups = serverGroups.filter((g) => g.rankedTeamIds.length >= 4).length;
+              const doneGroups = (groupPredRes?.predictions || []).filter((g) => g.rankedTeamIds.length >= 4).length;
               setWcChecklist({
                 goldenBoot: pred?.goldenBoot?.playerId != null,
                 topThree: !!pred?.topThree?.length && pred.topThree.every((p) => p.teamId != null),
                 groups: totalGroups > 0 && doneGroups >= totalGroups,
-                locked: predRes?.locked ?? false,
+                locked: predRes?.locked || groupPredRes?.locked || false,
               });
             }
           } else if (!cancelled) {
