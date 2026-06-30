@@ -3,6 +3,15 @@
  * Used by both the on-demand controller fetches and the background crons,
  * so the shape stays consistent across entry points.
  */
+function deriveStoredScore(score = {}) {
+  return {
+    // regularTime excludes extra time and penalties, which is what predictions
+    // should resolve against for knockout matches.
+    home: score?.regularTime?.home ?? score?.fullTime?.home ?? score?.halfTime?.home ?? null,
+    away: score?.regularTime?.away ?? score?.fullTime?.away ?? score?.halfTime?.away ?? null,
+  };
+}
+
 function mapApiMatchToDoc(m, competition, now = new Date()) {
   const kickoff = new Date(m.utcDate);
   const endTime = new Date(kickoff.getTime() + 2 * 60 * 60 * 1000);
@@ -18,10 +27,7 @@ function mapApiMatchToDoc(m, competition, now = new Date()) {
     awayTeamId: m.awayTeam?.id ?? null,
     homeCrest: m.homeTeam?.crest || null,
     awayCrest: m.awayTeam?.crest || null,
-    score: {
-      home: m.score?.fullTime?.home ?? null,
-      away: m.score?.fullTime?.away ?? null,
-    },
+    score: deriveStoredScore(m.score),
     kickoffDateTime: kickoff,
     matchweek: typeof m.matchday === 'number' ? m.matchday : null,
     stage: m.stage || null,
@@ -42,4 +48,4 @@ function deriveStatus(apiStatus, now, kickoff, endTime) {
   return 'finished';
 }
 
-module.exports = { mapApiMatchToDoc };
+module.exports = { mapApiMatchToDoc, deriveStoredScore };

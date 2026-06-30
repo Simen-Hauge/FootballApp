@@ -4,7 +4,7 @@ const Prediction = require('../models/Prediction');
 const { matchPointLogic, firstScorerPointLogic } = require('../utils/calculatePoints');
 const { incrementPlayerScore } = require('../controllers/PlayerController');
 const { getMatch, getMatches, COMPETITIONS_TO_TRACK, isRateLimit } = require('../utils/footballDataClient');
-const { mapApiMatchToDoc } = require('../utils/matchMapper');
+const { mapApiMatchToDoc, deriveStoredScore } = require('../utils/matchMapper');
 
 const FINAL_STATUSES = new Set(['FINISHED', 'IN_PLAY', 'PAUSED']);
 
@@ -69,13 +69,9 @@ async function processCompetition(competition) {
     handledInWindow.add(apiMatch.id);
 
     const doc = mapApiMatchToDoc(apiMatch, competition);
-    const fullTimeHome = apiMatch.score?.fullTime?.home;
-    const fullTimeAway = apiMatch.score?.fullTime?.away;
-    const halfTimeHome = apiMatch.score?.halfTime?.home;
-    const halfTimeAway = apiMatch.score?.halfTime?.away;
-    const scoreHome = fullTimeHome ?? halfTimeHome ?? 0;
-    const scoreAway = fullTimeAway ?? halfTimeAway ?? 0;
-    doc.score = { home: scoreHome, away: scoreAway };
+    const resolvedScore = deriveStoredScore(apiMatch.score);
+    const scoreHome = resolvedScore.home ?? 0;
+    const scoreAway = resolvedScore.away ?? 0;
 
     console.log(
       `⚽ [${competition}] ${doc.homeTeam} ${scoreHome}-${scoreAway} ${doc.awayTeam} · ${apiMatch.status}`,
